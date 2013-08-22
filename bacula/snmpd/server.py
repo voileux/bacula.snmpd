@@ -31,18 +31,22 @@ class Mib(object):
 class MibClientError(object):
     """Va contenir les fonctions et element pour la table clientError
     """
-    def setName(self,name):
-	self.__name__= name
+
+    """ Fonction qui recup le tuple qui contient l'oid demande 
+	ca permet de recup au moins le dernier digit de l'oid     
+    """ 
+    def setOid(self,oid):
+	self.__oid__= oid
 
     def getBaculaClientsErrorIndex(self):
-	return self.__name__[-1]
+	return self.__oid__[-1]
 
     def getBaculaClientErrorName(self):
-        return "names_" + str(self.__name__[-1])
+        return "names_" + str(self.__oid__[-1])
 
 
 
-def createVariable(SuperClass, flagTable, getValue, *args):
+def createVariable(SuperClass, flagTable, objMib, getValue, *args):
     """This is going to create a instance variable that we can export. 
     getValue is a function to call to retreive the value of the scalar
     """
@@ -51,48 +55,23 @@ def createVariable(SuperClass, flagTable, getValue, *args):
 
     class Var(SuperClass):
         def readGet(self, name, *args):
-            print "readGet de Var est appele"
             return name, self.syntax.clone(getValue())
 
     class VarTable(SuperClass):
 	def readGet(self, name, *args):
-	    print "readGet de VarTable"
+	    objMib.setOid(name)
 	    return name, self.syntax.clone(getValue())
 
     
     if flagTable:
-	#je suis une table 
 	return VarTable(*args)
     else :
-	# je ne suis pas une table 
 	return Var(*args)
-
-def createVariable2(SuperClass, flagTable, objMibInstance, getValue, *args):
-
-    class Var(SuperClass):
-        def readGet(self, name, *args):
-            print "readGet de Var est appele"
-            return name, self.syntax.clone(getValue())
-
-    class VarTable(SuperClass):
-        def readGet(self, name, *args):
-            print "readGet de VarTable"
-	    objMibInstance.setName(name)
-            return name, self.syntax.clone(getValue())
-
-
-    if flagTable:
-        #je suis une table 
-        return VarTable(*args)
-    else :
-        # je ne suis pas une table 
-        return Var(*args)
-
 
 
 class SNMPAgent(object):
     """Implements an Agent that serves the custom MIB and
-    can send a trap.
+    
     """
 
     def __init__(self, mibObjects):
@@ -137,30 +116,21 @@ class SNMPAgent(object):
             if mibObject.flagTable:
 		#je suis une table 
 		for clientIndex in [0,1,3,56,87]:
-		    instance = createVariable2(MibScalarInstance, mibObject.flagTable, mibClientError, mibObject.valueFunc, nextVar.name,(clientIndex,), nextVar.syntax)
+		    instance = createVariable(MibScalarInstance, mibObject.flagTable, mibClientError, mibObject.valueFunc, nextVar.name,(clientIndex,), nextVar.syntax)
 		    listName = list(nextVar.name)
 		    listName.append(clientIndex)
 		    newName = tuple(listName)
 	    	    instanceDict = {str(newName)+"Instance":instance}
-#		    import pdb ; pdb.set_trace()
            	    mibBuilder.exportSymbols(mibObject.mibName, **instanceDict)
 
 	    else :
-		instance = createVariable(MibScalarInstance, mibObject.flagTable, mibObject.valueFunc, nextVar.name,(0,), nextVar.syntax)
-                                             #class            ,flag si c une table  ,nom de la fonction , oid          , type d'oid
+		instance = createVariable(MibScalarInstance, mibObject.flagTable, mib, mibObject.valueFunc, nextVar.name,(0,), nextVar.syntax)
+                                             #class         ,flag si c une table ,class , nom de la fonction , oid          , type d'oid
 
             	#need to export as <var name>Instance
 	        instanceDict = {str(nextVar.name)+"Instance2":instance}
-#n		import pdb ; pdb.set_trace()
 	   	mibBuilder.exportSymbols(mibObject.mibName, **instanceDict)
 
-
-
-#	(clientErrorIndex, clientErrorName) = mibBuilder.importSymbols('AXIONE-MIB' ,'clientErrorIndex', 'clientErrorName')
-#	mibBuilder.exportSymbols(ClientErrorIndexInstance(MibScalarInstance, clientErrorIndex.getName(),0,clientErrorIndex.getSyntax()))
-#	mibBuilder.exportSymbols(ClientErrorNameInstance(MibScalarInstance, clientErrorName.getName(),0,clientErrorName.getSyntax()))
-
-	
 
         # tell pysnmp to respotd to get, getnext, and getbulk
         cmdrsp.GetCommandResponder(self._snmpEngine, self._snmpContext)
@@ -208,5 +178,4 @@ def main():
         print "Shutting down"
 
 if __name__ == '__main__':
-#    import pdb ; pdb.set_trace()
     main()
