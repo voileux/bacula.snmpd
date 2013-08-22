@@ -28,5 +28,9 @@ setup(name='bacula.snmpd',
       ],
       entry_points="""
       # -*- Entry points: -*-
+      [console_scripts]
+      snmpd-server = bacula.snmpd.server:main
       """,
       )
+
+      #snmpd-server = bacula.snmpd.server:main
