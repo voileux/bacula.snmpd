@@ -12,7 +12,7 @@ import time
 #can be useful
 #debug.setLogger(debug.Debug('all'))
 
-MibObject = collections.namedtuple('MibObject', ['mibName', 'objectType','flagTable', 'valueFunc' ])
+MibObject = collections.namedtuple('MibObject', ['mibName', 'objectType','flagTable','objMib', 'valueFunc' ])
 
 class Mib(object):
     """Stores the data we want to serve. 
@@ -28,7 +28,7 @@ class Mib(object):
 	return "10"
 
 
-class MibClientError(object):
+class MibClient(object):
     """Va contenir les fonctions et element pour la table clientError
     """
 
@@ -38,10 +38,10 @@ class MibClientError(object):
     def setOid(self,oid):
 	self.__oid__= oid
 
-    def getBaculaClientsErrorIndex(self):
+    def getBaculaClientIndex(self):
 	return self.__oid__[-1]
 
-    def getBaculaClientErrorName(self):
+    def getBaculaClientName(self):
         return "names_" + str(self.__oid__[-1])
 
 
@@ -116,7 +116,7 @@ class SNMPAgent(object):
             if mibObject.flagTable:
 		#je suis une table 
 		for clientIndex in [0,1,3,56,87]:
-		    instance = createVariable(MibScalarInstance, mibObject.flagTable, mibClientError, mibObject.valueFunc, nextVar.name,(clientIndex,), nextVar.syntax)
+		    instance = createVariable(MibScalarInstance, mibObject.flagTable, mibObject.objMib, mibObject.valueFunc, nextVar.name,(clientIndex,), nextVar.syntax)
 		    listName = list(nextVar.name)
 		    listName.append(clientIndex)
 		    newName = tuple(listName)
@@ -124,7 +124,7 @@ class SNMPAgent(object):
            	    mibBuilder.exportSymbols(mibObject.mibName, **instanceDict)
 
 	    else :
-		instance = createVariable(MibScalarInstance, mibObject.flagTable, mib, mibObject.valueFunc, nextVar.name,(0,), nextVar.syntax)
+		instance = createVariable(MibScalarInstance, mibObject.flagTable, mibObject.objMib, mibObject.valueFunc, nextVar.name,(0,), nextVar.syntax)
                                              #class         ,flag si c une table ,class , nom de la fonction , oid          , type d'oid
 
             	#need to export as <var name>Instance
@@ -161,11 +161,11 @@ class Worker(threading.Thread):
 
 # car mib et agent sont des variables globales 
 mib = Mib()
-mibClientError = MibClientError()
-objects = [MibObject('AXIONE-MIB', 'baculaVersion', False ,mib.getBaculaVersion), 
-	   MibObject('AXIONE-MIB', 'baculaTotalClients', False, mib.getBaculaTotalClient),
-	   MibObject('AXIONE-MIB', 'baculaClientsErrorIndex', True  ,mibClientError.getBaculaClientsErrorIndex),
-           MibObject('AXIONE-MIB', 'baculaClientErrorName', True, mibClientError.getBaculaClientErrorName)]
+mibClient = MibClient()
+objects = [MibObject('AXIONE-MIB', 'baculaVersion', False , mib ,mib.getBaculaVersion), 
+	   MibObject('AXIONE-MIB', 'baculaTotalClients', False, mib , mib.getBaculaTotalClient),
+	   MibObject('AXIONE-MIB', 'baculaClientIndex', True  ,mibClient , mibClient.getBaculaClientIndex),
+           MibObject('AXIONE-MIB', 'baculaClientName', True, mibClient, mibClient.getBaculaClientName)]
 agent = SNMPAgent(objects)
 
 
