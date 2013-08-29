@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 import os
 
-version = '0.1'
+version = '1.0'
 
 setup(name='bacula.snmpd',
       version=version,
@@ -24,6 +24,8 @@ setup(name='bacula.snmpd',
       zip_safe=False,
       install_requires=[
           'setuptools',
+	  'SQLAlchemy',
+          'zope.sqlalchemy',
           # -*- Extra requirements: -*-
       ],
       entry_points="""

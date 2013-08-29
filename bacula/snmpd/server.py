@@ -12,11 +12,15 @@ import time
 #can be useful
 #debug.setLogger(debug.Debug('all'))
 
-MibObject = collections.namedtuple('MibObject', ['mibName', 'objectType','flagTable','objMib', 'valueFunc' ])
+MibObject = collections.namedtuple('MibObject', ['mibName', 'objectType','objMib', 'valueFunc' ])
 
 class Mib(object):
     """Stores the data we want to serve. 
     """
+
+    def __init__(self):
+	self.oid = (0, 0) # car c'est un tuple 
+	self.flag = False 	
 
     def __init__(self):
         self._lock = threading.RLock()
@@ -32,21 +36,17 @@ class MibClient(object):
     """Va contenir les fonctions et element pour la table clientError
     """
 
-    """ Fonction qui recup le tuple qui contient l'oid demande 
-	ca permet de recup au moins le dernier digit de l'oid     
-    """ 
-    def setOid(self,oid):
-	self.__oid__= oid
+    def __init__(self ):
+	self.oid = (0,0) # car c'est un tuple 
+	self.flag = True 
 
     def getBaculaClientIndex(self):
-	return self.__oid__[-1]
+	return self.oid[-1]
 
     def getBaculaClientName(self):
-        return "names_" + str(self.__oid__[-1])
+        return "names_" + str(self.oid[-1])
 
-
-
-def createVariable(SuperClass, flagTable, objMib, getValue, *args):
+def createVariable(SuperClass, objMib, getValue, *args):
     """This is going to create a instance variable that we can export. 
     getValue is a function to call to retreive the value of the scalar
     """
@@ -55,23 +55,12 @@ def createVariable(SuperClass, flagTable, objMib, getValue, *args):
 
     class Var(SuperClass):
         def readGet(self, name, *args):
+	    objMib.oid = name
             return name, self.syntax.clone(getValue())
-
-    class VarTable(SuperClass):
-	def readGet(self, name, *args):
-	    objMib.setOid(name)
-	    return name, self.syntax.clone(getValue())
-
-    
-    if flagTable:
-	return VarTable(*args)
-    else :
-	return Var(*args)
-
+    return Var(*args) 
 
 class SNMPAgent(object):
-    """Implements an Agent that serves the custom MIB and
-    
+    """Implements an Agent that serves the custom MIB     
     """
 
     def __init__(self, mibObjects):
@@ -111,12 +100,11 @@ class SNMPAgent(object):
         #export our custom mib
         for mibObject in mibObjects:
             nextVar, = mibBuilder.importSymbols(mibObject.mibName, mibObject.objectType)
-	    #import pdb ; pdb.set_trace()
 	    """ cela va associer la fonction qui renvopi la valeur l'oid """
-            if mibObject.flagTable:
+            if mibObject.objMib.flag:
 		#je suis une table 
 		for clientIndex in [0,1,3,56,87]:
-		    instance = createVariable(MibScalarInstance, mibObject.flagTable, mibObject.objMib, mibObject.valueFunc, nextVar.name,(clientIndex,), nextVar.syntax)
+		    instance = createVariable(MibScalarInstance, mibObject.objMib, mibObject.valueFunc, nextVar.name,(clientIndex,), nextVar.syntax)
 		    listName = list(nextVar.name)
 		    listName.append(clientIndex)
 		    newName = tuple(listName)
@@ -124,11 +112,11 @@ class SNMPAgent(object):
            	    mibBuilder.exportSymbols(mibObject.mibName, **instanceDict)
 
 	    else :
-		instance = createVariable(MibScalarInstance, mibObject.flagTable, mibObject.objMib, mibObject.valueFunc, nextVar.name,(0,), nextVar.syntax)
-                                             #class         ,flag si c une table ,class , nom de la fonction , oid          , type d'oid
+		instance = createVariable(MibScalarInstance, mibObject.objMib, mibObject.valueFunc, nextVar.name,(0,), nextVar.syntax)
+                                             #class         ,class with fonc , nom de la fonction , oid               , type d'oid
 
             	#need to export as <var name>Instance
-	        instanceDict = {str(nextVar.name)+"Instance2":instance}
+	        instanceDict = {str(nextVar.name)+"Instance":instance}
 	   	mibBuilder.exportSymbols(mibObject.mibName, **instanceDict)
 
 
@@ -159,18 +147,17 @@ class Worker(threading.Thread):
         self.setDaemon(True)
 
 
-# car mib et agent sont des variables globales 
-mib = Mib()
-mibClient = MibClient()
-objects = [MibObject('AXIONE-MIB', 'baculaVersion', False , mib ,mib.getBaculaVersion), 
-	   MibObject('AXIONE-MIB', 'baculaTotalClients', False, mib , mib.getBaculaTotalClient),
-	   MibObject('AXIONE-MIB', 'baculaClientIndex', True  ,mibClient , mibClient.getBaculaClientIndex),
-           MibObject('AXIONE-MIB', 'baculaClientName', True, mibClient, mibClient.getBaculaClientName)]
-agent = SNMPAgent(objects)
-
-
 def main():
-#    objects = [MibObject('AXIONE-MIB', 'baculaVersion', mib.getBaculaVersion)]
+    mib = Mib()
+    mib.flag = False
+    mibClient = MibClient()
+    mibClient.flag = True
+    objects = [MibObject('AXIONE-MIB', 'baculaVersion', mib ,mib.getBaculaVersion),
+               MibObject('AXIONE-MIB', 'baculaTotalClients', mib , mib.getBaculaTotalClient),
+               MibObject('AXIONE-MIB', 'baculaClientIndex', mibClient , mibClient.getBaculaClientIndex),
+               MibObject('AXIONE-MIB', 'baculaClientName', mibClient, mibClient.getBaculaClientName)]
+    agent = SNMPAgent(objects)
+
     Worker(agent, mib).start()
     try:
         agent.serve_forever()
