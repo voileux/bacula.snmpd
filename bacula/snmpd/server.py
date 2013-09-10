@@ -4,7 +4,7 @@ from pysnmp.entity.rfc3413 import cmdrsp, context, ntforg
 from pysnmp.carrier.asynsock.dgram import udp
 from pysnmp.smi import builder 
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func
 from sqlalchemy.orm import relationship, backref, sessionmaker
 
 from bacula.snmpd.sql_classBacula import Job, Client
@@ -33,17 +33,39 @@ class SQLObject(object):
 	return self.session.query(Client)
     
     def getClient(self, clientId): 
-       # querying for Client table
-        client = self.session.query(Client).filter(Client.clientId == clientId).one()
-	return client
+        return self.session.query(Client).filter(Client.clientId == clientId).one()
         
-    def getJobs(self, clientId):
+    def getJobs24H(self, clientId):
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
-	print heure24
         return self.session.query(Job).filter(Job.clientId == clientId).filter(Job.endTime > heure24)
 
-    #for client in clients2:
-    #       print client.Job.name + " | " + client.Client.name + " | " + client.Client.uname  + " | " + client.Job.jobStatus
+    def getTotalSizeBackup(self, clientId):
+	totalSizeBackup = self.session.query(func.sum(Job.jobBytes)).filter(Job.clientId == clientId).scalar()
+	if not totalSizeBackup:
+		totalSizeBackup = 0
+	import pdb ; pdb.set_trace()
+	return totalSizeBackup/(1024*1024)
+
+    def getSizeBackup24H(self, clientId):
+	heure24 = datetime.datetime.now() - datetime.timedelta(1)
+	sizeBackup24h =  self.session.query(func.sum(Job.jobBytes)).filter(Job.clientId == clientId).filter(Job.endTime > heure24).scalar()
+	if not sizeBackup24h:
+		sizeBackup24h = 0
+	return sizeBackup24h/(1024*1024)
+
+    def getTotalNumberFiles(self, clientId):
+        totalNumberFiles = self.session.query(func.sum(Job.jobFiless)).filter(Job.clientId == clientId).scalar()
+	if not totalNumberFiles:
+		totalNumberFiles = 0
+	return totalNumberFiles
+
+    def getNumberFiles24H(self, clientId):
+	heure24 = datetime.datetime.now() - datetime.timedelta(1)
+        numberFiles24H = self.session.query(func.sum(Job.jobFiless)).filter(Job.clientId == clientId).filter(Job.endTime > heure24).scalar()
+	if not numberFiles24H:
+		numberFiles24H = 0 
+	return numberFiles24H
+
 
 class Mib(object):
     """Stores the data we want to serve. 
@@ -61,6 +83,7 @@ class Mib(object):
 
     def getBaculaTotalClient(self):
 	return self.sqlObject.nbClient
+
 
 class MibClient(object):
     """Va contenir les fonctions et element pour la table clientError
@@ -80,31 +103,35 @@ class MibClient(object):
 
     def getBaculaClientError(self):
 	clientId = self.oid[-1]
-        jobs = self.sqlObject.getJobs(clientId)
+        jobs = self.sqlObject.getJobs24H(clientId)
+	print "nombre de Jobs = " +  str(jobs.count())
+	if jobs.count() == 0: 
+	    #on a pas eu de jobs dans les 24h
+	    return "1"
+
 	for job in jobs:
-	    import pdb ; pdb.set_trace()
 	    if job.jobErrors == "1": 
+		#on a un job en erreur dans les 24h 
 	        return "1" 
 
         return "0"
 
     def getBaculaClientSizeBackup(self):
         clientId = self.oid[-1]
-        jobs = self.sqlObject.getJobs(clientId)
-	size = 0 
-        for job in jobs:
-	    size = size + job.jobBytes
-        return size
+        return self.sqlObject.getSizeBackup24H(clientId)
+
+    def getBaculaClientTotalSizeBackup(self):
+	clientId = self.oid[-1]
+        return self.sqlObject.getTotalSizeBackup(clientId)
 
     def getBaculaClientNumberFiles(self):
-	clientId = self.oid[-1]
-        jobs = self.sqlObject.getJobs(clientId)
-        numberFiles = 0
-        for job in jobs:
-            numberFiles = numberFiles + job.jobFiles
-        return numberFiles
+        clientId = self.oid[-1]
+        return self.sqlObject.getNumberFiles24H(clientId)
 
-
+    def getBaculaClientTotalNumberFiles(self):
+        clientId = self.oid[-1]
+        return self.sqlObject.getTotalNumberFiles(clientId)
+	
 
 def createVariable(SuperClass, objMib, getValue, *args):
     """This is going to create a instance variable that we can export. 
@@ -224,7 +251,9 @@ def main():
                MibObject('AXIONE-MIB', 'baculaClientName', mibClient, mibClient.getBaculaClientName),
                MibObject('AXIONE-MIB', 'baculaClientError', mibClient, mibClient.getBaculaClientError),
                MibObject('AXIONE-MIB', 'baculaClientSizeBackup', mibClient, mibClient.getBaculaClientSizeBackup),
-	       MibObject('AXIONE-MIB', 'baculaClientNumberFiles', mibClient, mibClient.getBaculaClientNumberFiles)]
+               MibObject('AXIONE-MIB', 'baculaClientTotalSizeBackup', mibClient, mibClient.getBaculaClientTotalSizeBackup),
+	       MibObject('AXIONE-MIB', 'baculaClientNumberFiles', mibClient, mibClient.getBaculaClientNumberFiles),
+	       MibObject('AXIONE-MIB', 'baculaClientTotalNumberFiles', mibClient, mibClient.getBaculaClientTotalNumberFiles)]
     agent = SNMPAgent(objects, sqlObject)
 
     Worker(agent, mib).start()

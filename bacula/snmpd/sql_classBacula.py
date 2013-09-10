@@ -1,4 +1,4 @@
-#from sqlalchemy import create_engine  
+#from sqlalchemy import create_engine, func 
 from sqlalchemy import Column, Date, Integer, String, Binary
 from sqlalchemy.ext.declarative import declarative_base
 #from sqlalchemy.orm import relationship, backref, sessionmaker 
@@ -306,8 +306,10 @@ class Storage(Base): #OK
 #	print client.Job.name + " | " + client.Client.name + " | " + client.Client.uname  + " | " + client.Job.jobStatus
 
 #client =  session.query(Client).filter(Client.clientId == "1").one()
+
+#totalSizeBackup = session.query(func.sum(Job.jobBytes)).filter(Job.clientId == "4")
 #import pdb ; pdb.set_trace()
-#print client.name
+#print totalSizeBackup
 
 #session.close()
 
