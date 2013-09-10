@@ -1,15 +1,13 @@
-# table_def.py
-from sqlalchemy import create_engine, ForeignKey
+#from sqlalchemy import create_engine  
 from sqlalchemy import Column, Date, Integer, String, Binary
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship, backref, sessionmaker
+#from sqlalchemy.orm import relationship, backref, sessionmaker 
 from sqlalchemy.dialects.mysql import BIGINT, BINARY, BIT, BLOB, BOOLEAN, CHAR, DATE, \
         DATETIME, DECIMAL, DECIMAL, DOUBLE, ENUM, FLOAT, INTEGER, \
         LONGBLOB, LONGTEXT, MEDIUMBLOB, MEDIUMINT, MEDIUMTEXT, NCHAR, \
         NUMERIC, NVARCHAR, REAL, SET, SMALLINT, TEXT, TIME, TIMESTAMP, \
         TINYBLOB, TINYINT, TINYTEXT, VARBINARY, VARCHAR, YEAR
 
-engine = create_engine('mysql+mysqlconnector://test:test123@localhost/bacula2', echo=True)
 Base = declarative_base()
  
 ########################################################################
@@ -293,14 +291,23 @@ class Storage(Base): #OK
 		
 ########################################################################
 
+#engine = create_engine('mysql+mysqlconnector://test:test123@localhost/bacula2', echo=True)
+#Base = declarative_base()
+
 # create a Session
-Session = sessionmaker(bind=engine)
-session = Session()
+#Session = sessionmaker(bind=engine)
+#session = Session()
  
 # querying for a record in the Client table
-res = session.query(Client)
-import pdb ; pdb.set_trace()
-print res.name
+#clients = session.query(Job)
+#clients2 = session.query(Job,Client).mon_filter(Job.clientId = Client.clientId)
+#clients2 = session.query(Job,Client).filter(Job.clientId == Client.clientId)
+#for client in clients2: 
+#	print client.Job.name + " | " + client.Client.name + " | " + client.Client.uname  + " | " + client.Job.jobStatus
 
-session.close()
+#client =  session.query(Client).filter(Client.clientId == "1").one()
+#import pdb ; pdb.set_trace()
+#print client.name
+
+#session.close()
 
