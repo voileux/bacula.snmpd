@@ -21,6 +21,7 @@ setup(name='bacula.snmpd',
       packages=find_packages(exclude=['ez_setup']),
       namespace_packages=['bacula'],
       include_package_data=True,
+      data_files = [('etc', ['src/templates/etc/defaults.cfg'])],
       zip_safe=False,
       install_requires=[
           'setuptools',

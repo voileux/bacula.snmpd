@@ -8,6 +8,7 @@ from sqlalchemy import create_engine, func
 from sqlalchemy.orm import relationship, backref, sessionmaker
 
 from bacula.snmpd.sql_classBacula import Job, Client
+from bacula.snmpd.utils import getdefaults
 import os
 import threading
 import collections
@@ -21,8 +22,9 @@ MibObject = collections.namedtuple('MibObject', ['mibName', 'objectType','objMib
 
 class SQLObject(object):
 
-    def __init__(self):
-        engine = create_engine('mysql+mysqlconnector://test:test123@localhost/bacula2', echo=True)
+    def __init__(self, url):
+        #engine = create_engine('mysql+mysqlconnector://test:test123@localhost/bacula2', echo=False)
+        engine = create_engine(url, echo=False)
 
         # create a Session
         Session = sessionmaker(bind=engine)
@@ -43,7 +45,6 @@ class SQLObject(object):
 	totalSizeBackup = self.session.query(func.sum(Job.jobBytes)).filter(Job.clientId == clientId).scalar()
 	if not totalSizeBackup:
 		totalSizeBackup = 0
-	import pdb ; pdb.set_trace()
 	return totalSizeBackup/(1024*1024)
 
     def getSizeBackup24H(self, clientId):
@@ -54,14 +55,14 @@ class SQLObject(object):
 	return sizeBackup24h/(1024*1024)
 
     def getTotalNumberFiles(self, clientId):
-        totalNumberFiles = self.session.query(func.sum(Job.jobFiless)).filter(Job.clientId == clientId).scalar()
+        totalNumberFiles = self.session.query(func.sum(Job.jobFiles)).filter(Job.clientId == clientId).scalar()
 	if not totalNumberFiles:
 		totalNumberFiles = 0
 	return totalNumberFiles
 
     def getNumberFiles24H(self, clientId):
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
-        numberFiles24H = self.session.query(func.sum(Job.jobFiless)).filter(Job.clientId == clientId).filter(Job.endTime > heure24).scalar()
+        numberFiles24H = self.session.query(func.sum(Job.jobFiles)).filter(Job.clientId == clientId).filter(Job.endTime > heure24).scalar()
 	if not numberFiles24H:
 		numberFiles24H = 0 
 	return numberFiles24H
@@ -104,14 +105,11 @@ class MibClient(object):
     def getBaculaClientError(self):
 	clientId = self.oid[-1]
         jobs = self.sqlObject.getJobs24H(clientId)
-	print "nombre de Jobs = " +  str(jobs.count())
 	if jobs.count() == 0: 
-	    #on a pas eu de jobs dans les 24h
 	    return "1"
 
 	for job in jobs:
-	    if job.jobErrors == "1": 
-		#on a un job en erreur dans les 24h 
+	    if job.jobErrors == 1: 
 	        return "1" 
 
         return "0"
@@ -151,7 +149,7 @@ class SNMPAgent(object):
     """Implements an Agent that serves the custom MIB     
     """
 
-    def __init__(self, mibObjects, sqlObject):
+    def __init__(self, mibObjects, sqlObject, _rootDir):
         """
         mibObjects - a list of MibObject tuples that this agent
         will serve
@@ -178,7 +176,7 @@ class SNMPAgent(object):
         #current directory for our new MIB. We'll also use it to
         #export our symbols later
         mibBuilder = self._snmpContext.getMibInstrum().getMibBuilder()
-        mibSources = mibBuilder.getMibSources() + (builder.DirMibSource(os.path.abspath('.')),)
+        mibSources = mibBuilder.getMibSources() + (builder.DirMibSource(os.path.join(_rootDir, 'src/lib_mib_py')),)
         mibBuilder.setMibSources(*mibSources)
 
         #our variables will subclass this since we only have scalar types
@@ -193,7 +191,6 @@ class SNMPAgent(object):
 		#je suis une table
 		
 		for client in sqlObject.getClients():
-#                    import pdb ; pdb.set_trace()
 		    instance = createVariable(MibScalarInstance, mibObject.objMib, mibObject.valueFunc, nextVar.name,(client.clientId,), nextVar.syntax)
 		    listName = list(nextVar.name)
 		    listName.append(client.clientId)
@@ -238,7 +235,15 @@ class Worker(threading.Thread):
 
 
 def main():
-    sqlObject = SQLObject()
+    pathTest, null = os.path.split(os.path.abspath(__file__))
+#   /home/simon/paulla/snmpd-server/src/bacula.snmpd/bacula/snmpd/server.py
+    pathTest, null  = os.path.split(pathTest)
+    pathTest, null  = os.path.split(pathTest)
+    pathTest, null  = os.path.split(pathTest)
+    _rootDir, null  = os.path.split(pathTest)
+#    /home/simon/paulla/snmpd-server/src
+    options = getdefaults('BDD', _rootDir)
+    sqlObject = SQLObject(options['url'])
     mib = Mib()
     mib.flag = False
     mib.sqlObject = sqlObject
@@ -254,7 +259,7 @@ def main():
                MibObject('AXIONE-MIB', 'baculaClientTotalSizeBackup', mibClient, mibClient.getBaculaClientTotalSizeBackup),
 	       MibObject('AXIONE-MIB', 'baculaClientNumberFiles', mibClient, mibClient.getBaculaClientNumberFiles),
 	       MibObject('AXIONE-MIB', 'baculaClientTotalNumberFiles', mibClient, mibClient.getBaculaClientTotalNumberFiles)]
-    agent = SNMPAgent(objects, sqlObject)
+    agent = SNMPAgent(objects, sqlObject, _rootDir)
 
     Worker(agent, mib).start()
     try:
