@@ -4,11 +4,9 @@ from pysnmp.entity.rfc3413 import cmdrsp, context, ntforg
 from pysnmp.carrier.asynsock.dgram import udp
 from pysnmp.smi import builder 
 
-from sqlalchemy import create_engine, func
-from sqlalchemy.orm import relationship, backref, sessionmaker
-
-from bacula.snmpd.sql_classBacula import Job, Client
 from bacula.snmpd.utils import getdefaults
+
+import MySQLdb as mdb
 import os
 import threading
 import collections
@@ -21,77 +19,96 @@ import datetime
 MibObject = collections.namedtuple('MibObject', ['mibName', 'objectType','objMib', 'valueFunc' ])
 
 class SQLObject(object):
+    """ Class of managed SQL's interaction.
+	contains connexion to SQL server and query to BDD 
+    """
 
-    def __init__(self, url):
-        #engine = create_engine('mysql+mysqlconnector://test:test123@localhost/bacula2', echo=False)
-        engine = create_engine(url, echo=False)
+    def __init__(self, paramsDict):
+    	con = mdb.connect(paramsDict['server'], paramsDict['user'], paramsDict['password'] ,paramsDict['database'])
+	self.cur = con.cursor(mdb.cursors.DictCursor)
+	self.cur.execute("SELECT count(*) as nbClient FROM Client")
+	
+	result = self.cur.fetchone()
+	self.nbClient = result['nbClient'] #because it's a Dict with header
 
-        # create a Session
-        Session = sessionmaker(bind=engine)
-        self.session = Session()
-	self.nbClient = self.session.query(Client).count()
-
-    def getClients(self):
-	return self.session.query(Client)
+    def getClientsId(self):
+	"""A list of Clients.
+	   return the Client list 
+        """
+	self.cur.execute("SELECT ClientId FROM Client")
+	return self.cur.fetchall()
     
-    def getClient(self, clientId): 
-        return self.session.query(Client).filter(Client.clientId == clientId).one()
-        
+    def getClient(self, clientId):
+	"""A Bacula Client.
+           return a definition of a bacula Client 
+	"""
+	self.cur.execute("SELECT * from Client WHERE ClientId =" + str(clientId) )
+	return self.cur.fetchone()
+
+ 
     def getJobs24H(self, clientId):
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
-        return self.session.query(Job).filter(Job.clientId == clientId).filter(Job.endTime > heure24)
+	self.cur.execute("SELECT * FROM Job WHERE ClientId="+ str(clientId) + " AND EndTime>'" + str(heure24) + "'" )
+	
+	return self.cur.fetchall()
+
 
     def getTotalSizeBackup(self, clientId):
-	totalSizeBackup = self.session.query(func.sum(Job.jobBytes)).filter(Job.clientId == clientId).scalar()
+	self.cur.execute("SELECT sum(JobBytes) as totalSizeBackup FROM Job WHERE ClientId =" + str(clientId) )
+	totalSizeBackup = self.cur.fetchone()['totalSizeBackup']
 	if not totalSizeBackup:
 		totalSizeBackup = 0
 	return totalSizeBackup/(1024*1024)
 
     def getSizeBackup24H(self, clientId):
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
-	sizeBackup24h =  self.session.query(func.sum(Job.jobBytes)).filter(Job.clientId == clientId).filter(Job.endTime > heure24).scalar()
+	self.cur.execute("SELECT sum(JobBytes) as sizeBackup24h FROM Job WHERE ClientId =" + str(clientId) +" AND EndTime>'" + str(heure24) + "'" )
+	sizeBackup24h  = self.cur.fetchone()['sizeBackup24h']
 	if not sizeBackup24h:
 		sizeBackup24h = 0
 	return sizeBackup24h/(1024*1024)
 
     def getTotalNumberFiles(self, clientId):
-        totalNumberFiles = self.session.query(func.sum(Job.jobFiles)).filter(Job.clientId == clientId).scalar()
+	self.cur.execute("SELECT sum(JobFiles) as totalNumberFiles FROM Job WHERE ClientId =" + str(clientId) )
+	totalNumberFiles  = self.cur.fetchone()['totalNumberFiles']
 	if not totalNumberFiles:
 		totalNumberFiles = 0
 	return totalNumberFiles
 
     def getNumberFiles24H(self, clientId):
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
-        numberFiles24H = self.session.query(func.sum(Job.jobFiles)).filter(Job.clientId == clientId).filter(Job.endTime > heure24).scalar()
+	self.cur.execute("SELECT sum(JobFiles) as numberFiles24H FROM Job WHERE ClientId =" + str(clientId) +" AND EndTime>'" + str(heure24) + "'" )
+	numberFiles24H  = self.cur.fetchone()['numberFiles24H']
 	if not numberFiles24H:
 		numberFiles24H = 0 
 	return numberFiles24H
 
 
 class Mib(object):
-    """Stores the data we want to serve. 
+    """ Class of simple oid : baculaVersion and baculaTotalClients.
+        Stores the fonction we want to serve this oid . 
     """
 
     def __init__(self):
-	self.oid = (0, 0) # car c'est un tuple 
+	self.oid = (0, 0) # because it's a tuple 
 	self.flag = False
 
     def __init__(self):
         self._lock = threading.RLock()
 
     def getBaculaVersion(self):
-        return "Version de Bacula"
+        return "Bacula Version"
 
     def getBaculaTotalClient(self):
 	return self.sqlObject.nbClient
 
 
 class MibClient(object):
-    """Va contenir les fonctions et element pour la table clientError
+    """Content of BaculaClientTable.
     """
 
     def __init__(self ):
-	self.oid = (0,0) # car c'est un tuple 
+	self.oid = (0,0) # because it's a tuple 
 	self.flag = True 
 
     def getBaculaClientIndex(self):
@@ -99,17 +116,17 @@ class MibClient(object):
 
     def getBaculaClientName(self):
 	clientId = self.oid[-1]
-	name = self.sqlObject.getClient(clientId).name
+	name = self.sqlObject.getClient(clientId)['Name']
         return name
 
     def getBaculaClientError(self):
 	clientId = self.oid[-1]
         jobs = self.sqlObject.getJobs24H(clientId)
-	if jobs.count() == 0: 
+	if len(jobs) == 0: 
 	    return "1"
 
 	for job in jobs:
-	    if job.jobErrors == 1: 
+	    if job['JobErrors'] == 1: 
 	        return "1" 
 
         return "0"
@@ -134,8 +151,6 @@ class MibClient(object):
 def createVariable(SuperClass, objMib, getValue, *args):
     """This is going to create a instance variable that we can export. 
     getValue is a function to call to retreive the value of the scalar
-    """
-    """permet d'associer la fonction a l'oid defini dans la variable object  
     """
 
     class Var(SuperClass):
@@ -186,14 +201,13 @@ class SNMPAgent(object):
         #export our custom mib
         for mibObject in mibObjects:
             nextVar, = mibBuilder.importSymbols(mibObject.mibName, mibObject.objectType)
-	    """ cela va associer la fonction qui renvopi la valeur l'oid"""
             if mibObject.objMib.flag:
 		#je suis une table
 		
-		for client in sqlObject.getClients():
-		    instance = createVariable(MibScalarInstance, mibObject.objMib, mibObject.valueFunc, nextVar.name,(client.clientId,), nextVar.syntax)
+		for client in sqlObject.getClientsId():
+		    instance = createVariable(MibScalarInstance, mibObject.objMib, mibObject.valueFunc, nextVar.name,(client['ClientId'],), nextVar.syntax)
 		    listName = list(nextVar.name)
-		    listName.append(client.clientId)
+		    listName.append(client['ClientId'] )
 		    newName = tuple(listName)
 	    	    instanceDict = {str(newName)+"Instance":instance}
            	    mibBuilder.exportSymbols(mibObject.mibName, **instanceDict)
@@ -243,7 +257,7 @@ def main():
     _rootDir, null  = os.path.split(pathTest)
 #    /home/simon/paulla/snmpd-server/src
     options = getdefaults('BDD', _rootDir)
-    sqlObject = SQLObject(options['url'])
+    sqlObject = SQLObject(options)
     mib = Mib()
     mib.flag = False
     mib.sqlObject = sqlObject
@@ -265,7 +279,6 @@ def main():
     try:
         agent.serve_forever()
     except KeyboardInterrupt:
-	sqlObject.session.close()
         print "Shutting down"
 
 if __name__ == '__main__':
