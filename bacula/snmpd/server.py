@@ -195,8 +195,8 @@ class SNMPAgent(object):
 
         #our variables will subclass this since we only have scalar types
         #can't load this type directly, need to import it
-        MibScalarInstance, = mibBuilder.importSymbols('SNMPv2-SMI',
-                                                      'MibScalarInstance')
+        MibScalarInstance, = mibBuilder.importSymbols('SNMPv2-SMI', 'MibScalarInstance')
+
         #export our custom mib
         for mibObject in mibObjects:
             nextVar, = mibBuilder.importSymbols(mibObject.mibName, mibObject.objectType)
@@ -253,23 +253,25 @@ def main():
     pathTest, null  = os.path.split(pathTest)
     _rootDir, null  = os.path.split(pathTest)
 #    /home/simon/paulla/snmpd-server/src/bacula.snmpd/
-    options = getdefaults('BDD', _rootDir)
-    sqlObject = SQLObject(options)
+    bdd_options = getdefaults('BDD', _rootDir)
+    mib_options = getdefaults('MIBS', _rootDir)
+    mib_name = mib_options['name']
+    sqlObject = SQLObject(bdd_options)
     mib = Mib()
     mib.flag = False
     mib.sqlObject = sqlObject
     mibClient = MibClient()
     mibClient.flag = True
     mibClient.sqlObject = sqlObject
-    objects = [MibObject('AXIONE-MIB', 'baculaVersion', mib ,mib.getBaculaVersion),
-               MibObject('AXIONE-MIB', 'baculaTotalClients', mib , mib.getBaculaTotalClient),
-               MibObject('AXIONE-MIB', 'baculaClientIndex', mibClient , mibClient.getBaculaClientIndex),
-               MibObject('AXIONE-MIB', 'baculaClientName', mibClient, mibClient.getBaculaClientName),
-               MibObject('AXIONE-MIB', 'baculaClientError', mibClient, mibClient.getBaculaClientError),
-               MibObject('AXIONE-MIB', 'baculaClientSizeBackup', mibClient, mibClient.getBaculaClientSizeBackup),
-               MibObject('AXIONE-MIB', 'baculaClientTotalSizeBackup', mibClient, mibClient.getBaculaClientTotalSizeBackup),
-	       MibObject('AXIONE-MIB', 'baculaClientNumberFiles', mibClient, mibClient.getBaculaClientNumberFiles),
-	       MibObject('AXIONE-MIB', 'baculaClientTotalNumberFiles', mibClient, mibClient.getBaculaClientTotalNumberFiles)]
+    objects = [MibObject(mib_name, 'baculaVersion', mib ,mib.getBaculaVersion),
+               MibObject(mib_name, 'baculaTotalClients', mib , mib.getBaculaTotalClient),
+               MibObject(mib_name, 'baculaClientIndex', mibClient , mibClient.getBaculaClientIndex),
+               MibObject(mib_name, 'baculaClientName', mibClient, mibClient.getBaculaClientName),
+               MibObject(mib_name, 'baculaClientError', mibClient, mibClient.getBaculaClientError),
+               MibObject(mib_name, 'baculaClientSizeBackup', mibClient, mibClient.getBaculaClientSizeBackup),
+               MibObject(mib_name, 'baculaClientTotalSizeBackup', mibClient, mibClient.getBaculaClientTotalSizeBackup),
+	       MibObject(mib_name, 'baculaClientNumberFiles', mibClient, mibClient.getBaculaClientNumberFiles),
+	       MibObject(mib_name, 'baculaClientTotalNumberFiles', mibClient, mibClient.getBaculaClientTotalNumberFiles)]
     agent = SNMPAgent(objects, sqlObject, _rootDir)
 
     Worker(agent, mib).start()
