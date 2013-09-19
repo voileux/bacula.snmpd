@@ -169,7 +169,6 @@ class SNMPAgent(object):
         mibObjects - a list of MibObject tuples that this agent
         will serve
         """
-
         #each SNMP-based application has an engine
         self._snmpEngine = engine.SnmpEngine()
 
@@ -191,7 +190,7 @@ class SNMPAgent(object):
         #current directory for our new MIB. We'll also use it to
         #export our symbols later
         mibBuilder = self._snmpContext.getMibInstrum().getMibBuilder()
-        mibSources = mibBuilder.getMibSources() + (builder.DirMibSource(os.path.join(_rootDir, 'src/lib_mib_py')),)
+        mibSources = mibBuilder.getMibSources() + (builder.DirMibSource(os.path.join(_rootDir, 'lib_mib_py')),)
         mibBuilder.setMibSources(*mibSources)
 
         #our variables will subclass this since we only have scalar types
@@ -250,12 +249,10 @@ class Worker(threading.Thread):
 
 def main():
     pathTest, null = os.path.split(os.path.abspath(__file__))
-#   /home/simon/paulla/snmpd-server/src/bacula.snmpd/bacula/snmpd/server.py
-    pathTest, null  = os.path.split(pathTest)
-    pathTest, null  = os.path.split(pathTest)
+#    /home/simon/paulla/snmpd-server/src/bacula.snmpd/bacula/snmpd/server.py
     pathTest, null  = os.path.split(pathTest)
     _rootDir, null  = os.path.split(pathTest)
-#    /home/simon/paulla/snmpd-server/src
+#    /home/simon/paulla/snmpd-server/src/bacula.snmpd/
     options = getdefaults('BDD', _rootDir)
     sqlObject = SQLObject(options)
     mib = Mib()

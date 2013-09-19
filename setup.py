@@ -13,26 +13,26 @@ setup(name='bacula.snmpd',
       classifiers=[
         "Programming Language :: Python",
         ],
-      keywords='',
-      author='',
-      author_email='',
+      keywords='Bacula Snmpd Server',
+      author='Simon RECHER PauLLA',
+      author_email='srecher@resel.fr',
       url='http://svn.plone.org/svn/collective/',
       license='GPL',
       packages=find_packages(exclude=['ez_setup']),
       namespace_packages=['bacula'],
       include_package_data=True,
-      data_files = [('etc', ['src/templates/etc/defaults.cfg'])],
+      data_files = [('etc', ['etc/defaults.cfg'])],
       zip_safe=False,
       install_requires=[
           'setuptools',
-	  'SQLAlchemy',
-          'zope.sqlalchemy',
+	  'mysql-python',
+	  'pysnmp',
           # -*- Extra requirements: -*-
       ],
       entry_points="""
       # -*- Entry points: -*-
       [console_scripts]
-      snmpd-server = bacula.snmpd.server:main
+      bacula-snmpd-server = bacula.snmpd.server:main
       """,
       )
 
