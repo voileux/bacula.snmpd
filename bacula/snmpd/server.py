@@ -180,7 +180,7 @@ class SNMPAgent(object):
     """Implements an Agent that serves the custom MIB     
     """
 
-    def __init__(self, mibObjects, sqlObject, _rootDir):
+    def __init__(self, mibObjects, sqlObject, _rootDir, server_options):
         """
         mibObjects - a list of MibObject tuples that this agent
         will serve
@@ -190,14 +190,13 @@ class SNMPAgent(object):
 
         #open a UDP socket to listen for snmp requests
         config.addSocketTransport(self._snmpEngine, udp.domainName,
-                                  udp.UdpTransport().openServerMode(('', 161)))
+                                  udp.UdpTransport().openServerMode(('', int(server_options['port']))))
 
         #add a v2 user with the community string public
-        config.addV1System(self._snmpEngine, "agent", "public")
+        config.addV1System(self._snmpEngine, "agent", server_options['community'])
         #let anyone accessing 'public' read anything in the subtree below,
         #which is the enterprises subtree that we defined our MIB to be in
-        config.addVacmUser(self._snmpEngine, 2, "agent", "noAuthNoPriv",
-                           readSubTree=(1,3,6,1,4,1))
+        config.addVacmUser(self._snmpEngine, int(server_options['version']), "agent", "noAuthNoPriv", readSubTree=(1,3,6,1,4,1))
 
         #each app has one or more contexts
         self._snmpContext = context.SnmpContext(self._snmpEngine)
@@ -271,6 +270,7 @@ def main():
 #    /home/simon/paulla/snmpd-server/src/bacula.snmpd/
     bdd_options = getdefaults('BDD', _rootDir)
     mib_options = getdefaults('MIBS', _rootDir)
+    server_options = getdefaults('SERVER', _rootDir)
     mib_name = mib_options['name']
     sqlObject = SQLObject(bdd_options)
     mib = Mib()
@@ -289,7 +289,7 @@ def main():
                MibObject(mib_name, 'baculaClientTotalSizeBackup', mibClient, mibClient.getBaculaClientTotalSizeBackup),
 	       MibObject(mib_name, 'baculaClientNumberFiles', mibClient, mibClient.getBaculaClientNumberFiles),
 	       MibObject(mib_name, 'baculaClientTotalNumberFiles', mibClient, mibClient.getBaculaClientTotalNumberFiles)]
-    agent = SNMPAgent(objects, sqlObject, _rootDir)
+    agent = SNMPAgent(objects, sqlObject, _rootDir, server_options)
 
     Worker(agent, mib).start()
     try:
