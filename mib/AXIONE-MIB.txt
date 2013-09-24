@@ -14,13 +14,17 @@ IMPORTS
 
 
 axione-mib MODULE-IDENTITY
-	LAST-UPDATED 	"201309100000Z"
+	LAST-UPDATED 	"201309240000Z"
 	ORGANIZATION 	" axione "
 	CONTACT-INFO 	"
 		Author: Axione STN2 Simon RECHER
 		www.axione.fr"
 
 	DESCRIPTION 	"MIB Axione."
+	
+	
+	REVISION 	"201309240000Z"
+	DESCRIPTION 	"Ajout de baculaTotalClientsErrors"
 	
 	REVISION 	"201309100000Z"
 	DESCRIPTION 	"Ajout de baculaClientTotalBackup et de baculaClientTotalNumberFile"
@@ -81,7 +85,7 @@ axione-mib MODULE-IDENTITY
 			baculaGroups		 OBJECT IDENTIFIER ::= { baculaConformance 2 }
 				--{{{ .1.3.6.1.4.1.33923.0.1.2.1 baculaGroupClients
 				baculaGroupClients		OBJECT-GROUP
-					OBJECTS				{ baculaVersion, baculaTotalClients,  
+					OBJECTS				{ baculaVersion, baculaTotalClients, baculaTotalClientsErrors,  
 										baculaClientName, baculaClientError, baculaClientSizeBackup, baculaClientTotalSizeBackup, baculaClientNumberFiles, baculaClientTotalNumberFiles }
 					STATUS				current
 					DESCRIPTION			"A collection of objects providing information
@@ -99,7 +103,7 @@ axione-mib MODULE-IDENTITY
 			SYNTAX 			OCTET STRING -- le sousObjet bacula-version est de type chaine de caractere
 			MAX-ACCESS 		read-only -- acces en lecture
 			STATUS 			current
-			DESCRIPTION		"Description de l'objet .1.1 : version de bacula"
+			DESCRIPTION		"Version du Director de bacula"
 			::= { baculaStats 1 } -- parent du sousObjet
 		-- .1.3.6.1.4.1.33923.1.1 baculaVersion }}}
 		-- {{{ .1.3.6.1.4.1.33923.1.2 baculaTotalClients
@@ -107,16 +111,24 @@ axione-mib MODULE-IDENTITY
 			SYNTAX 			Integer32 -- le sousObjet bacula-version est de type entier
 			MAX-ACCESS 		read-only -- acces en lecture
 			STATUS 			current
-			DESCRIPTION		"Description de l'objet .1.2 : nombre de client bacula"
+			DESCRIPTION		"Nombre de client bacula"
 			::= { baculaStats 2 } -- parent du sousObjet
 		-- .1.3.6.1.4.1.33923.1.2 baculaTotalClients }}}
-		-- {{{ .1.3.6.1.4.1.33923.1.3  baculaClientsTable
+		-- {{{ .1.3.6.1.4.1.33923.1.3 baculaTotalClientsErrors
+		baculaTotalClientsErrors 	OBJECT-TYPE
+			SYNTAX 			Integer32 -- le sousObjet bacula-version est de type entier
+			MAX-ACCESS 		read-only -- acces en lecture
+			STATUS 			current
+			DESCRIPTION		"Nombre de client bacula en erreur : Sans Job cree depuis ou avec au moins un job en erreur dans les 24 dernieres heures"
+			::= { baculaStats 3 } -- parent du sousObjet
+		-- .1.3.6.1.4.1.33923.1.3 baculaTotalClients }}}
+		-- {{{ .1.3.6.1.4.1.33923.1.4  baculaClientsTable
 		baculaClientsTable			OBJECT-TYPE
 			SYNTAX					SEQUENCE OF BaculaClientsEntry
 			MAX-ACCESS				not-accessible
 			STATUS					current
 			DESCRIPTION				"table contenant tout les clients"
-			::= { baculaStats 3 }
+			::= { baculaStats 4 }
 			-- {{{ .1.3.6.1.4.1.33923.1.4.1  baculaClientsEntry
 			baculaClientsEntry			OBJECT-TYPE
 				SYNTAX					BaculaClientsEntry

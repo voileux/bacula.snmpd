@@ -47,6 +47,9 @@ class SQLObject(object):
 
  
     def getJobs24H(self, clientId):
+	""" A list of last 24h Bacula Job for a client
+	   return the last 24h job for a client 
+	"""
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
 	self.cur.execute("SELECT * FROM Job WHERE ClientId="+ str(clientId) + " AND EndTime>'" + str(heure24) + "'" )
 	
@@ -83,6 +86,18 @@ class SQLObject(object):
 		numberFiles24H = 0 
 	return numberFiles24H
 
+    def clientInError(self, clientId):
+	jobs = self.getJobs24H(clientId)
+        if len(jobs) == 0:
+            return "1"
+
+        for job in jobs:
+            if job['JobErrors'] == 1:
+                return "1"
+
+        return "0"
+
+
 
 class Mib(object):
     """ Class of simple oid : baculaVersion and baculaTotalClients.
@@ -101,6 +116,15 @@ class Mib(object):
 
     def getBaculaTotalClient(self):
 	return self.sqlObject.nbClient
+
+    def getBaculaTotalClientError(self):
+	clientIds = self.sqlObject.getClientsId()
+	totalClientError = 0
+	for clientId in clientIds:
+	    totalClientError = totalClientError + int(self.sqlObject.clientInError(clientId['ClientId']))
+	
+	return totalClientError 
+	    
 
 
 class MibClient(object):
@@ -121,15 +145,7 @@ class MibClient(object):
 
     def getBaculaClientError(self):
 	clientId = self.oid[-1]
-        jobs = self.sqlObject.getJobs24H(clientId)
-	if len(jobs) == 0: 
-	    return "1"
-
-	for job in jobs:
-	    if job['JobErrors'] == 1: 
-	        return "1" 
-
-        return "0"
+        return  self.sqlObject.clientInError(clientId)
 
     def getBaculaClientSizeBackup(self):
         clientId = self.oid[-1]
@@ -265,6 +281,7 @@ def main():
     mibClient.sqlObject = sqlObject
     objects = [MibObject(mib_name, 'baculaVersion', mib ,mib.getBaculaVersion),
                MibObject(mib_name, 'baculaTotalClients', mib , mib.getBaculaTotalClient),
+               MibObject(mib_name, 'baculaTotalClientsErrors', mib , mib.getBaculaTotalClientError),
                MibObject(mib_name, 'baculaClientIndex', mibClient , mibClient.getBaculaClientIndex),
                MibObject(mib_name, 'baculaClientName', mibClient, mibClient.getBaculaClientName),
                MibObject(mib_name, 'baculaClientError', mibClient, mibClient.getBaculaClientError),
