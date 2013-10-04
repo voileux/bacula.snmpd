@@ -266,10 +266,10 @@ def main():
     pathTest, null = os.path.split(os.path.abspath(__file__))
 #    /home/simon/paulla/snmpd-server/src/bacula.snmpd/bacula/snmpd/server.py
     pathTest, null  = os.path.split(pathTest)
-    _rootDir, null  = os.path.split(pathTest)
-    _rootDir, null  = os.path.split(pathTest)
-    _rootDir, null  = os.path.split(pathTest)
-#    /home/simon/paulla/snmpd-server/
+    _rootDir_pkg, null  = os.path.split(pathTest)
+    _rootDir, null  = os.path.split(_rootDir_pkg)
+    _rootDir, null  = os.path.split(_rootDir)
+#    /home/simon/paulla/snmpd-server/src/bacula.snmpd
     bdd_options = getdefaults('BDD', _rootDir)
     mib_options = getdefaults('MIBS', _rootDir)
     server_options = getdefaults('SERVER', _rootDir)
@@ -291,7 +291,7 @@ def main():
                MibObject(mib_name, 'baculaClientTotalSizeBackup', mibClient, mibClient.getBaculaClientTotalSizeBackup),
 	       MibObject(mib_name, 'baculaClientNumberFiles', mibClient, mibClient.getBaculaClientNumberFiles),
 	       MibObject(mib_name, 'baculaClientTotalNumberFiles', mibClient, mibClient.getBaculaClientTotalNumberFiles)]
-    agent = SNMPAgent(objects, sqlObject, _rootDir, server_options)
+    agent = SNMPAgent(objects, sqlObject, _rootDir_pkg, server_options)
 
     Worker(agent, mib).start()
     try:
