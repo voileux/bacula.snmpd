@@ -24,8 +24,8 @@ class SQLObject(object):
     """
 
     def __init__(self, paramsDict):
-    	con = mdb.connect(paramsDict['server'], paramsDict['user'], paramsDict['password'] ,paramsDict['database'])
-	self.cur = con.cursor(mdb.cursors.DictCursor)
+    	self.con = mdb.connect(paramsDict['server'], paramsDict['user'], paramsDict['password'] ,paramsDict['database'])
+	self.cur = self.con.cursor(mdb.cursors.DictCursor)
 	self.cur.execute("SELECT count(*) as nbClient FROM Client")
 	
 	result = self.cur.fetchone()
@@ -35,6 +35,7 @@ class SQLObject(object):
 	"""A list of Clients.
 	   return the Client list 
         """
+	self.con.ping()
 	self.cur.execute("SELECT ClientId FROM Client")
 	return self.cur.fetchall()
     
@@ -42,6 +43,7 @@ class SQLObject(object):
 	"""A Bacula Client.
            return a definition of a bacula Client 
 	"""
+	self.con.ping()
 	self.cur.execute("SELECT * from Client WHERE ClientId =" + str(clientId) )
 	return self.cur.fetchone()
 
@@ -51,12 +53,14 @@ class SQLObject(object):
 	   return the last 24h job for a client 
 	"""
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
+	self.con.ping()
 	self.cur.execute("SELECT * FROM Job WHERE ClientId="+ str(clientId) + " AND EndTime>'" + str(heure24) + "'" )
 	
 	return self.cur.fetchall()
 
 
     def getTotalSizeBackup(self, clientId):
+	self.con.ping()
 	self.cur.execute("SELECT sum(JobBytes) as totalSizeBackup FROM Job WHERE ClientId =" + str(clientId) )
 	totalSizeBackup = self.cur.fetchone()['totalSizeBackup']
 	if not totalSizeBackup:
@@ -65,6 +69,7 @@ class SQLObject(object):
 
     def getSizeBackup24H(self, clientId):
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
+	self.con.ping()
 	self.cur.execute("SELECT sum(JobBytes) as sizeBackup24h FROM Job WHERE ClientId =" + str(clientId) +" AND EndTime>'" + str(heure24) + "'" )
 	sizeBackup24h  = self.cur.fetchone()['sizeBackup24h']
 	if not sizeBackup24h:
@@ -72,6 +77,7 @@ class SQLObject(object):
 	return sizeBackup24h/(1024*1024)
 
     def getTotalNumberFiles(self, clientId):
+	self.con.ping()
 	self.cur.execute("SELECT sum(JobFiles) as totalNumberFiles FROM Job WHERE ClientId =" + str(clientId) )
 	totalNumberFiles  = self.cur.fetchone()['totalNumberFiles']
 	if not totalNumberFiles:
@@ -80,6 +86,7 @@ class SQLObject(object):
 
     def getNumberFiles24H(self, clientId):
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
+	self.con.ping()
 	self.cur.execute("SELECT sum(JobFiles) as numberFiles24H FROM Job WHERE ClientId =" + str(clientId) +" AND EndTime>'" + str(heure24) + "'" )
 	numberFiles24H  = self.cur.fetchone()['numberFiles24H']
 	if not numberFiles24H:
