@@ -267,7 +267,9 @@ def main():
 #    /home/simon/paulla/snmpd-server/src/bacula.snmpd/bacula/snmpd/server.py
     pathTest, null  = os.path.split(pathTest)
     _rootDir, null  = os.path.split(pathTest)
-#    /home/simon/paulla/snmpd-server/src/bacula.snmpd/
+    _rootDir, null  = os.path.split(pathTest)
+    _rootDir, null  = os.path.split(pathTest)
+#    /home/simon/paulla/snmpd-server/
     bdd_options = getdefaults('BDD', _rootDir)
     mib_options = getdefaults('MIBS', _rootDir)
     server_options = getdefaults('SERVER', _rootDir)
