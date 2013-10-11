@@ -13,10 +13,12 @@ import collections
 import time
 import datetime
 
+import sys
 #can be useful
 #debug.setLogger(debug.Debug('all'))
 
 MibObject = collections.namedtuple('MibObject', ['mibName', 'objectType','objMib', 'valueFunc' ])
+nb_sql_requete = 0
 
 class SQLObject(object):
     """ Class of managed SQL's interaction.
@@ -27,7 +29,9 @@ class SQLObject(object):
     	self.con = mdb.connect(paramsDict['server'], paramsDict['user'], paramsDict['password'] ,paramsDict['database'])
 	self.cur = self.con.cursor(mdb.cursors.DictCursor)
 	self.cur.execute("SELECT count(*) as nbClient FROM Client")
-	
+	global nb_sql_requete 
+	nb_sql_requete = nb_sql_requete + 1
+
 	result = self.cur.fetchone()
 	self.nbClient = result['nbClient'] #because it's a Dict with header
 
@@ -35,60 +39,115 @@ class SQLObject(object):
 	"""A list of Clients.
 	   return the Client list 
         """
-	self.con.ping()
-	self.cur.execute("SELECT ClientId FROM Client")
+	try: 
+	    self.con.ping()
+	    self.cur.execute("SELECT ClientId FROM Client")
+	    global nb_sql_requete 
+	    nb_sql_requete = nb_sql_requete + 1
+	except mdb.ProgrammingError as erro:
+	    print "ProgrammingError({0}): {1}".format(erro.errno, erro.strerror)
+	except:
+	    print "getClientsId : Unexpected error:", sys.exc_info()[0]
+	
 	return self.cur.fetchall()
     
     def getClient(self, clientId):
 	"""A Bacula Client.
            return a definition of a bacula Client 
 	"""
-	self.con.ping()
-	self.cur.execute("SELECT * from Client WHERE ClientId =" + str(clientId) )
+	try:
+    	    self.con.ping()
+	    self.cur.execute("SELECT * from Client WHERE ClientId =" + str(clientId) )
+	    global nb_sql_requete 
+	    nb_sql_requete = nb_sql_requete + 1
+        except mdb.ProgrammingError as erro:
+            print "ProgrammingError({0}): {1}".format(erro.errno, erro.strerror)
+        except:
+            print "getClient : Unexpected error:", sys.exc_info()[0]
+
 	return self.cur.fetchone()
 
  
-    def getJobs24H(self, clientId):
-	""" A list of last 24h Bacula Job for a client
-	   return the last 24h job for a client 
+    def getJobs24H(self):
+	""" A list of last 24h Bacula Job for all clients
+	   return the last 24h job for all clients 
 	"""
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
-	self.con.ping()
-	self.cur.execute("SELECT * FROM Job WHERE ClientId="+ str(clientId) + " AND EndTime>'" + str(heure24) + "'" )
-	
-	return self.cur.fetchall()
+	try:
+ 	    self.con.ping()
+	    self.cur.execute("SELECT Client.ClientId AS ClientId, Job.JobErrors AS JobErrors  FROM Job, Client WHERE Job.ClientId=Client.ClientId AND EndTime>'" + str(heure24) + "'" )
+	    global nb_sql_requete 
+	    nb_sql_requete = nb_sql_requete + 1
+	    return self.cur.fetchall()
+        except mdb.ProgrammingError as erro:
+            print "ProgrammingError({0}): {1}".format(erro.errno, erro.strerror)
+        except:
+            print "getJobs24H : Unexpected error:", sys.exc_info()[0]
+
 
 
     def getTotalSizeBackup(self, clientId):
-	self.con.ping()
-	self.cur.execute("SELECT sum(JobBytes) as totalSizeBackup FROM Job WHERE ClientId =" + str(clientId) )
-	totalSizeBackup = self.cur.fetchone()['totalSizeBackup']
+	try:
+	    self.con.ping()
+	    self.cur.execute("SELECT sum(JobBytes) as totalSizeBackup FROM Job WHERE ClientId =" + str(clientId) )
+	    totalSizeBackup = self.cur.fetchone()['totalSizeBackup']
+	    global nb_sql_requete 
+	    nb_sql_requete = nb_sql_requete + 1
+        except mdb.ProgrammingError as erro:
+            print "ProgrammingError({0}): {1}".format(erro.errno, erro.strerror)
+        except:
+            print "getTotalSizeBackup : Unexpected error:", sys.exc_info()[0]
+
 	if not totalSizeBackup:
 		totalSizeBackup = 0
 	return totalSizeBackup/(1024*1024)
 
     def getSizeBackup24H(self, clientId):
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
-	self.con.ping()
-	self.cur.execute("SELECT sum(JobBytes) as sizeBackup24h FROM Job WHERE ClientId =" + str(clientId) +" AND EndTime>'" + str(heure24) + "'" )
-	sizeBackup24h  = self.cur.fetchone()['sizeBackup24h']
+	try:
+	    self.con.ping()
+	    self.cur.execute("SELECT sum(JobBytes) as sizeBackup24h FROM Job WHERE ClientId =" + str(clientId) +" AND EndTime>'" + str(heure24) + "'" )
+	    sizeBackup24h  = self.cur.fetchone()['sizeBackup24h']
+	    global nb_sql_requete 
+	    nb_sql_requete = nb_sql_requete + 1
+        except mdb.ProgrammingError as erro:
+            print "ProgrammingError({0}): {1}".format(erro.errno, erro.strerror)
+        except:
+            print "getSizeBackup24H : Unexpected error:", sys.exc_info()[0]
+
 	if not sizeBackup24h:
 		sizeBackup24h = 0
 	return sizeBackup24h/(1024*1024)
 
     def getTotalNumberFiles(self, clientId):
-	self.con.ping()
-	self.cur.execute("SELECT sum(JobFiles) as totalNumberFiles FROM Job WHERE ClientId =" + str(clientId) )
-	totalNumberFiles  = self.cur.fetchone()['totalNumberFiles']
+	try:
+	    self.con.ping()
+	    self.cur.execute("SELECT sum(JobFiles) as totalNumberFiles FROM Job WHERE ClientId =" + str(clientId) )
+	    totalNumberFiles  = self.cur.fetchone()['totalNumberFiles']
+	    global nb_sql_requete 
+	    nb_sql_requete = nb_sql_requete + 1
+        except mdb.ProgrammingError as erro:
+            print "ProgrammingError({0}): {1}".format(erro.errno, erro.strerror)
+        except:
+            print "getTotalNumberFiles : Unexpected error:", sys.exc_info()[0]
+
 	if not totalNumberFiles:
 		totalNumberFiles = 0
 	return totalNumberFiles
 
     def getNumberFiles24H(self, clientId):
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
-	self.con.ping()
-	self.cur.execute("SELECT sum(JobFiles) as numberFiles24H FROM Job WHERE ClientId =" + str(clientId) +" AND EndTime>'" + str(heure24) + "'" )
-	numberFiles24H  = self.cur.fetchone()['numberFiles24H']
+	try:
+	    self.con.ping()
+	    self.cur.execute("SELECT sum(JobFiles) as numberFiles24H FROM Job WHERE ClientId =" + str(clientId) +" AND EndTime>'" + str(heure24) + "'" )
+	    numberFiles24H  = self.cur.fetchone()['numberFiles24H']
+	    global nb_sql_requete 
+	    nb_sql_requete = nb_sql_requete + 1
+        except mdb.ProgrammingError as erro:
+            print "ProgrammingError({0}): {1}".format(erro.errno, erro.strerror)
+        except:
+            print "getNumberFiles24H : Unexpected error:", sys.exc_info()[0]
+ 
 	if not numberFiles24H:
 		numberFiles24H = 0 
 	return numberFiles24H
@@ -224,7 +283,7 @@ class SNMPAgent(object):
             nextVar, = mibBuilder.importSymbols(mibObject.mibName, mibObject.objectType)
             if mibObject.objMib.flag:
 		#je suis une table
-		
+	
 		for client in sqlObject.getClientsId():
 		    instance = createVariable(MibScalarInstance, mibObject.objMib, mibObject.valueFunc, nextVar.name,(client['ClientId'],), nextVar.syntax)
 		    listName = list(nextVar.name)
@@ -270,6 +329,7 @@ class Worker(threading.Thread):
 
 
 def main():
+    nb_sql_requete = 0
     pathTest, null = os.path.split(os.path.abspath(__file__))
 #    /home/simon/paulla/snmpd-server/src/bacula.snmpd/bacula/snmpd/server.py
     pathTest, null  = os.path.split(pathTest)
