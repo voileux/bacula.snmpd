@@ -416,8 +416,7 @@ class SNMPAgent(object):
 
 
     def serve_forever(self):
-        logging.info("Starting Agent")
-	print "Starting agent"
+        print_log('info', self.__class__.__name__ + "." + inspect.stack()[0][3], msg ="Starting Agent")
         self._snmpEngine.transportDispatcher.jobStarted(1)
         try:
            self._snmpEngine.transportDispatcher.runDispatcher()
@@ -480,7 +479,7 @@ def main():
     try:
         agent.serve_forever()
     except KeyboardInterrupt:
-        print "Shutting down"
+        print_log('info', self.__class__.__name__ + "." + inspect.stack()[0][3],  msg = "Shutting down")
 
 if __name__ == '__main__':
     main()
