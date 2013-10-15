@@ -451,7 +451,11 @@ def main():
     log_options = getdefaults('LOG', _rootDir)
     if log_options['level'] == "DEBUG":
 	log_options['level'] = logging.DEBUG
-    
+    if log_options['level'] == "INFO"
+ 	log_options['level'] = logging.INFO
+    if  log_options['level'] == "WARNING"
+	log_options['level'] = logging.WARNING
+
     logging.basicConfig(filename=log_options['file'], level=log_options['level'], format='%(asctime)s | %(levelname)s:%(message)s', datfmt='%d/%m/%y %H:%M:%S' )
     logging.info("Daemon Started") 
 
