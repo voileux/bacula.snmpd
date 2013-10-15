@@ -479,7 +479,7 @@ def main():
     try:
         agent.serve_forever()
     except KeyboardInterrupt:
-        print_log('info', self.__class__.__name__ + "." + inspect.stack()[0][3],  msg = "Shutting down")
+        print_log('info', inspect.stack()[0][3],  msg = "Shutting down")
 
 if __name__ == '__main__':
     main()
