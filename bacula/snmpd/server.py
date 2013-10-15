@@ -286,16 +286,19 @@ class Mib(object):
         self._lock = threading.RLock()
 
     def getBaculaVersion(self):
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget  .1.3.6.1.4.1.33923.1.1 baculaVersion")
         return "Bacula Version"
 
     def getBaculaTotalClient(self):
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget  .1.3.6.1.4.1.33923.1.2 baculaTotalClients")
 	return self.sqlObject.nbClient
 
     def getBaculaTotalClientError(self):
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget  .1.3.6.1.4.1.33923.1.3 baculaTotalClientsErrors")
 	clientIds = self.sqlObject.getClientsId()
 	totalClientError = 0
-	for clientId in clientIds:
-	    totalClientError = totalClientError + int(self.sqlObject.clientInError(clientId['ClientId']))
+	#for clientId in clientIds:
+	#    totalClientError = totalClientError + int(self.sqlObject.clientInError(clientId['ClientId']))
 	
 	return totalClientError 
 	    
@@ -315,26 +318,32 @@ class MibClient(object):
     def getBaculaClientName(self):
 	clientId = self.oid[-1]
 	name = self.sqlObject.getClient(clientId)['Name']
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientName  .1.3.6.1.4.1.33923.1.4.1.2." + clientId )
         return name
 
     def getBaculaClientError(self):
 	clientId = self.oid[-1]
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientError  .1.3.6.1.4.1.33923.1.4.1.3." + clientId )
         return  self.sqlObject.clientInError(clientId)
 
     def getBaculaClientSizeBackup(self):
         clientId = self.oid[-1]
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientSizeBackup .1.3.6.1.4.1.33923.1.4.1.4." + clientId )
         return self.sqlObject.getSizeBackup24H(clientId)
 
     def getBaculaClientTotalSizeBackup(self):
 	clientId = self.oid[-1]
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientTotalSizeBackup .1.3.6.1.4.1.33923.1.4.1.5." + clientId )
         return self.sqlObject.getTotalSizeBackup(clientId)
 
     def getBaculaClientNumberFiles(self):
         clientId = self.oid[-1]
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientNumberFiles .1.3.6.1.4.1.33923.1.4.1.6." + clientId )
         return self.sqlObject.getNumberFiles24H(clientId)
 
     def getBaculaClientTotalNumberFiles(self):
         clientId = self.oid[-1]
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientTotalNumberFiles .1.3.6.1.4.1.33923.1.4.1.7." + clientId )
         return self.sqlObject.getTotalNumberFiles(clientId)
 	
 
