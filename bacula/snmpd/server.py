@@ -4,8 +4,9 @@ from pysnmp.entity.rfc3413 import cmdrsp, context, ntforg
 from pysnmp.carrier.asynsock.dgram import udp
 from pysnmp.smi import builder 
 
-from bacula.snmpd.utils import getdefaults
+from bacula.snmpd.utils import getdefaults, print_log
 
+import traceback as trbk
 import MySQLdb as mdb
 import os
 import threading
@@ -13,10 +14,16 @@ import collections
 import time
 import datetime
 
+import sys
+
+import logging
+import inspect
+
 #can be useful
 #debug.setLogger(debug.Debug('all'))
 
 MibObject = collections.namedtuple('MibObject', ['mibName', 'objectType','objMib', 'valueFunc' ])
+nb_sql_requete = 0
 
 class SQLObject(object):
     """ Class of managed SQL's interaction.
@@ -24,77 +31,237 @@ class SQLObject(object):
     """
 
     def __init__(self, paramsDict):
-    	self.con = mdb.connect(paramsDict['server'], paramsDict['user'], paramsDict['password'] ,paramsDict['database'])
+	txt  = " Start Connexion to BDD (server = " + paramsDict['server'] + "database = " + paramsDict['database'] +", user = " + paramsDict['user'] + ", password = " + paramsDict['password'] 
+        print_log('debug', self.__class__.__name__ +"."+ inspect.stack()[0][3], msg = txt  )
+    	
+	self.con = mdb.connect(paramsDict['server'], paramsDict['user'], paramsDict['password'] ,paramsDict['database'])
 	self.cur = self.con.cursor(mdb.cursors.DictCursor)
-	self.cur.execute("SELECT count(*) as nbClient FROM Client")
+        
+	query = "SELECT count(*) as nbClient FROM Client"
+	self.cur.execute(query)
+	print_log('debug', self.__class__.__name__ + "." + inspect.stack()[0][3], query = query) 
+	
+	global nb_sql_requete 
+	nb_sql_requete = nb_sql_requete + 1
+	print_log('debug',self.__class__.__name__ + "." + inspect.stack()[0][3], nb_sql_requete = nb_sql_requete)
 	
 	result = self.cur.fetchone()
-	self.nbClient = result['nbClient'] #because it's a Dict with header
+	self.nbClient = result['nbClient'] #because it's a Dict
 
     def getClientsId(self):
 	"""A list of Clients.
 	   return the Client list 
         """
-	self.con.ping()
-	self.cur.execute("SELECT ClientId FROM Client")
+	try: 
+	    self.con.ping()
+	    query = "SELECT ClientId FROM Client"
+	    self.cur.execute(query)
+	    print_log('debug' ,self.__class__.__name__ + "." + inspect.stack()[0][3] , query = query)
+	
+	    global nb_sql_requete 
+	    nb_sql_requete = nb_sql_requete + 1
+	    print_log('debug' , self.__class__.__name__ + "." + inspect.stack()[0][3], nb_sql_requete = nb_sql_requete)
+	
+	except mdb.ProgrammingError:
+	    print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3] , ProgrammingError = str(trbk.print_exc()))
+	    print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3] , nb_sql_requete = nb_sql_requete)
+	  
+	except:
+	    print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(trbk.print_exc()))
+	    print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(sys.exc_info()[0]))
+	    print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  nb_sql_requete =  nb_sql_requete) 
+	
 	return self.cur.fetchall()
     
     def getClient(self, clientId):
 	"""A Bacula Client.
            return a definition of a bacula Client 
 	"""
-	self.con.ping()
-	self.cur.execute("SELECT * from Client WHERE ClientId =" + str(clientId) )
+	try:
+    	    self.con.ping()
+	    query = "SELECT * from Client WHERE ClientId =" + str(clientId) 
+	    self.cur.execute(query)
+	    print_log('debug',self.__class__.__name__ + "." + inspect.stack()[0][3] , query = query)
+
+	    global nb_sql_requete 
+	    nb_sql_requete = nb_sql_requete + 1
+	    print_log('debug' , self.__class__.__name__ + "." + inspect.stack()[0][3], nb_sql_requete = nb_sql_requete)
+	
+	except mdb.ProgrammingError:
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3] , ProgrammingError = str(trbk.print_exc()))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3] , nb_sql_requete = nb_sql_requete)
+
+        except:
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(trbk.print_exc()))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(sys.exc_info()[0]))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  nb_sql_requete =  nb_sql_requete)
+
 	return self.cur.fetchone()
 
  
-    def getJobs24H(self, clientId):
-	""" A list of last 24h Bacula Job for a client
-	   return the last 24h job for a client 
+    def getJobs24H(self):
+	""" A list of last 24h Bacula Job for all clients
+	   return the last 24h job for all clients 
 	"""
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
-	self.con.ping()
-	self.cur.execute("SELECT * FROM Job WHERE ClientId="+ str(clientId) + " AND EndTime>'" + str(heure24) + "'" )
-	
+	try:
+ 	    self.con.ping()
+	    query = "SELECT ClientId, JobErrors  FROM Job  WHERE EndTime>'" + str(heure24) + "'"
+	    self.cur.execute(query)
+	    print_log('debug',self.__class__.__name__ + "." + inspect.stack()[0][3] , query = query)
+	    
+	    global nb_sql_requete 
+	    nb_sql_requete = nb_sql_requete + 1
+            print_log('debug' , self.__class__.__name__ + "." + inspect.stack()[0][3], nb_sql_requete = nb_sql_requete)
+ 
+	except mdb.ProgrammingError:
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3] , ProgrammingError = str(trbk.print_exc()))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3] , nb_sql_requete = nb_sql_requete)
+
+        except:
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(trbk.print_exc()))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(sys.exc_info()[0]))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  nb_sql_requete =  nb_sql_requete)
+    
 	return self.cur.fetchall()
 
 
+    def getClientJobs24H(self , clientId):
+        """ A list of last 24h Bacula Job for all clients
+           return the last 24h job for all clients 
+        """
+        heure24 = datetime.datetime.now() - datetime.timedelta(1)
+        try:
+            self.con.ping()
+	    query = "SELECT ClientId, JobErrors  FROM Job  WHERE ClientId = '" + str(clientId) + "'AND  EndTime>'" + str(heure24) + "'"
+            self.cur.execute(query)
+	    print_log('debug',self.__class__.__name__ + "." + inspect.stack()[0][3] , query = query) 
+            
+	    global nb_sql_requete
+            nb_sql_requete = nb_sql_requete + 1
+	    print_log('debug' , self.__class__.__name__ + "." + inspect.stack()[0][3], nb_sql_requete = nb_sql_requete)
+
+        except mdb.ProgrammingError:
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3] , ProgrammingError = str(trbk.print_exc()))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3] , nb_sql_requete = nb_sql_requete)
+
+        except:
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(trbk.print_exc()))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(sys.exc_info()[0]))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  nb_sql_requete =  nb_sql_requete)
+
+        return self.cur.fetchall()
+
+
     def getTotalSizeBackup(self, clientId):
-	self.con.ping()
-	self.cur.execute("SELECT sum(JobBytes) as totalSizeBackup FROM Job WHERE ClientId =" + str(clientId) )
-	totalSizeBackup = self.cur.fetchone()['totalSizeBackup']
-	if not totalSizeBackup:
-		totalSizeBackup = 0
+	try:
+	    self.con.ping()
+	    query = "SELECT sum(JobBytes) as totalSizeBackup FROM Job WHERE ClientId =" + str(clientId)
+	    self.cur.execute(query)
+            print_log('debug',self.__class__.__name__ + "." + inspect.stack()[0][3] , query = query)
+	    
+	    totalSizeBackup = self.cur.fetchone()['totalSizeBackup']
+	    global nb_sql_requete 
+	    nb_sql_requete = nb_sql_requete + 1
+	    print_log('debug' , self.__class__.__name__ + "." + inspect.stack()[0][3], nb_sql_requete = nb_sql_requete)
+
+	    if not totalSizeBackup:
+                totalSizeBackup = 0
+
+	except mdb.ProgrammingError:
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3] , ProgrammingError = str(trbk.print_exc()))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3] , nb_sql_requete = nb_sql_requete)
+
+        except:
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(trbk.print_exc()))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(sys.exc_info()[0]))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  nb_sql_requete =  nb_sql_requete)
+
 	return totalSizeBackup/(1024*1024)
 
     def getSizeBackup24H(self, clientId):
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
-	self.con.ping()
-	self.cur.execute("SELECT sum(JobBytes) as sizeBackup24h FROM Job WHERE ClientId =" + str(clientId) +" AND EndTime>'" + str(heure24) + "'" )
-	sizeBackup24h  = self.cur.fetchone()['sizeBackup24h']
-	if not sizeBackup24h:
-		sizeBackup24h = 0
+	try:
+	    self.con.ping()
+	    query = "SELECT sum(JobBytes) as sizeBackup24h FROM Job WHERE ClientId =" + str(clientId) +" AND EndTime>'" + str(heure24) + "'" 
+	    self.cur.execute(query)
+	    print_log('debug',self.__class__.__name__ + "." + inspect.stack()[0][3] , query = query)
+
+	    sizeBackup24h  = self.cur.fetchone()['sizeBackup24h']
+	    
+            global nb_sql_requete 
+	    nb_sql_requete = nb_sql_requete + 1
+	    print_log('debug' , self.__class__.__name__ + "." + inspect.stack()[0][3], nb_sql_requete = nb_sql_requete)
+	    
+	    if not sizeBackup24h:
+	        sizeBackup24h = 0
+
+	except mdb.ProgrammingError:
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3] , ProgrammingError = str(trbk.print_exc()))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3] , nb_sql_requete = nb_sql_requete)
+
+        except:
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(trbk.print_exc()))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(sys.exc_info()[0]))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  nb_sql_requete =  nb_sql_requete)
+
 	return sizeBackup24h/(1024*1024)
 
     def getTotalNumberFiles(self, clientId):
-	self.con.ping()
-	self.cur.execute("SELECT sum(JobFiles) as totalNumberFiles FROM Job WHERE ClientId =" + str(clientId) )
-	totalNumberFiles  = self.cur.fetchone()['totalNumberFiles']
-	if not totalNumberFiles:
+	try:
+	    self.con.ping()
+	    query = "SELECT sum(JobFiles) as totalNumberFiles FROM Job WHERE ClientId =" + str(clientId)
+	    self.cur.execute(query ) 
+	    print_log('debug',self.__class__.__name__ + "." + inspect.stack()[0][3] , query = query)
+
+	    totalNumberFiles  = self.cur.fetchone()['totalNumberFiles']
+
+	    global nb_sql_requete 
+	    nb_sql_requete = nb_sql_requete + 1
+            print_log('debug' , self.__class__.__name__ + "." + inspect.stack()[0][3], nb_sql_requete = nb_sql_requete)
+ 
+	    if not totalNumberFiles:
 		totalNumberFiles = 0
+	
+	except mdb.ProgrammingError:
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3] , ProgrammingError = str(trbk.print_exc()))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3] , nb_sql_requete = nb_sql_requete)
+
+        except:
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(trbk.print_exc()))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(sys.exc_info()[0]))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  nb_sql_requete =  nb_sql_requete)
+
 	return totalNumberFiles
 
     def getNumberFiles24H(self, clientId):
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
-	self.con.ping()
-	self.cur.execute("SELECT sum(JobFiles) as numberFiles24H FROM Job WHERE ClientId =" + str(clientId) +" AND EndTime>'" + str(heure24) + "'" )
-	numberFiles24H  = self.cur.fetchone()['numberFiles24H']
-	if not numberFiles24H:
+	try:
+	    self.con.ping()
+	    query = "SELECT sum(JobFiles) as numberFiles24H FROM Job WHERE ClientId =" + str(clientId) +" AND EndTime>'" + str(heure24) + "'"
+	    self.cur.execute(query )
+	    print_log('debug',self.__class__.__name__ + "." + inspect.stack()[0][3] , query = query)
+
+	    numberFiles24H  = self.cur.fetchone()['numberFiles24H']
+	    global nb_sql_requete 
+	    nb_sql_requete = nb_sql_requete + 1
+	    print_log('debug' , self.__class__.__name__ + "." + inspect.stack()[0][3], nb_sql_requete = nb_sql_requete)
+
+	    if not numberFiles24H:
 		numberFiles24H = 0 
+	except mdb.ProgrammingError:
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3] , ProgrammingError = str(trbk.print_exc()))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3] , nb_sql_requete = nb_sql_requete)
+
+        except:
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(trbk.print_exc()))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(sys.exc_info()[0]))
+            print_log('warning', self.__class__.__name__ + "." + inspect.stack()[0][3],  nb_sql_requete =  nb_sql_requete)
+
 	return numberFiles24H
 
     def clientInError(self, clientId):
-	jobs = self.getJobs24H(clientId)
+	jobs = self.getClientJobs24H(clientId)
         if len(jobs) == 0:
             return "1"
 
@@ -119,16 +286,19 @@ class Mib(object):
         self._lock = threading.RLock()
 
     def getBaculaVersion(self):
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget  .1.3.6.1.4.1.33923.1.1 baculaVersion")
         return "Bacula Version"
 
     def getBaculaTotalClient(self):
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget  .1.3.6.1.4.1.33923.1.2 baculaTotalClients")
 	return self.sqlObject.nbClient
 
     def getBaculaTotalClientError(self):
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget  .1.3.6.1.4.1.33923.1.3 baculaTotalClientsErrors")
 	clientIds = self.sqlObject.getClientsId()
 	totalClientError = 0
-	for clientId in clientIds:
-	    totalClientError = totalClientError + int(self.sqlObject.clientInError(clientId['ClientId']))
+	#for clientId in clientIds:
+	#    totalClientError = totalClientError + int(self.sqlObject.clientInError(clientId['ClientId']))
 	
 	return totalClientError 
 	    
@@ -148,26 +318,32 @@ class MibClient(object):
     def getBaculaClientName(self):
 	clientId = self.oid[-1]
 	name = self.sqlObject.getClient(clientId)['Name']
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientName  .1.3.6.1.4.1.33923.1.4.1.2." + str(clientId) )
         return name
 
     def getBaculaClientError(self):
 	clientId = self.oid[-1]
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientError  .1.3.6.1.4.1.33923.1.4.1.3." + str(clientId) )
         return  self.sqlObject.clientInError(clientId)
 
     def getBaculaClientSizeBackup(self):
         clientId = self.oid[-1]
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientSizeBackup .1.3.6.1.4.1.33923.1.4.1.4." + str(clientId) )
         return self.sqlObject.getSizeBackup24H(clientId)
 
     def getBaculaClientTotalSizeBackup(self):
 	clientId = self.oid[-1]
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientTotalSizeBackup .1.3.6.1.4.1.33923.1.4.1.5." + str(clientId) )
         return self.sqlObject.getTotalSizeBackup(clientId)
 
     def getBaculaClientNumberFiles(self):
         clientId = self.oid[-1]
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientNumberFiles .1.3.6.1.4.1.33923.1.4.1.6." + str(clientId) )
         return self.sqlObject.getNumberFiles24H(clientId)
 
     def getBaculaClientTotalNumberFiles(self):
         clientId = self.oid[-1]
+	print_log('info',  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientTotalNumberFiles .1.3.6.1.4.1.33923.1.4.1.7." + str(clientId) )
         return self.sqlObject.getTotalNumberFiles(clientId)
 	
 
@@ -224,7 +400,7 @@ class SNMPAgent(object):
             nextVar, = mibBuilder.importSymbols(mibObject.mibName, mibObject.objectType)
             if mibObject.objMib.flag:
 		#je suis une table
-		
+	
 		for client in sqlObject.getClientsId():
 		    instance = createVariable(MibScalarInstance, mibObject.objMib, mibObject.valueFunc, nextVar.name,(client['ClientId'],), nextVar.syntax)
 		    listName = list(nextVar.name)
@@ -249,7 +425,7 @@ class SNMPAgent(object):
 
 
     def serve_forever(self):
-        print "Starting agent"
+        print_log('info', self.__class__.__name__ + "." + inspect.stack()[0][3], msg ="Starting Agent")
         self._snmpEngine.transportDispatcher.jobStarted(1)
         try:
            self._snmpEngine.transportDispatcher.runDispatcher()
@@ -270,6 +446,7 @@ class Worker(threading.Thread):
 
 
 def main():
+    nb_sql_requete = 0
     pathTest, null = os.path.split(os.path.abspath(__file__))
 #    /home/simon/paulla/snmpd-server/src/bacula.snmpd/bacula/snmpd/server.py
     pathTest, null  = os.path.split(pathTest)
@@ -280,6 +457,17 @@ def main():
     bdd_options = getdefaults('BDD', _rootDir)
     mib_options = getdefaults('MIBS', _rootDir)
     server_options = getdefaults('SERVER', _rootDir)
+    log_options = getdefaults('LOG', _rootDir)
+    if log_options['level'] == "DEBUG":
+	log_options['level'] = logging.DEBUG
+    if log_options['level'] == "INFO":
+ 	log_options['level'] = logging.INFO
+    if  log_options['level'] == "WARNING":
+	log_options['level'] = logging.WARNING
+
+    logging.basicConfig(filename=log_options['file'], level=log_options['level'], format='%(asctime)s | %(levelname)s:%(message)s', datfmt='%d/%m/%y %H:%M:%S' )
+    logging.info("Daemon Started") 
+
     mib_name = mib_options['name']
     sqlObject = SQLObject(bdd_options)
     mib = Mib()
@@ -304,7 +492,7 @@ def main():
     try:
         agent.serve_forever()
     except KeyboardInterrupt:
-        print "Shutting down"
+        print_log('info', inspect.stack()[0][3],  msg = "Shutting down")
 
 if __name__ == '__main__':
     main()
