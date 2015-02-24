@@ -178,7 +178,7 @@ class SQLObject(object):
             return "1"
 
         for job in jobs:
-            if job['JobErrors'] == 1:
+            if job['JobStatus'] != 'T':
                 return "1"
 
         return "0"
