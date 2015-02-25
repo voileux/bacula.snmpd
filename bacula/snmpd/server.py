@@ -25,25 +25,24 @@ import inspect
 MibObject = collections.namedtuple('MibObject', ['mibName', 'objectType','objMib', 'valueFunc' ])
 
 def decorateur(fonction):
-    nb_sql_requete = 0
+    nb_sql_requete = {'count' : 0 }
     
 
     def fonction_decored(*args):
 	try:
 	    args[0].con.ping()
     	    resultat = fonction(*args)
-
-	    nb_sql_requete = nb_sql_requete + 1
-	    logging.debug( args[0].__class__.__name__ + "." + inspect.stack()[0][3] +' nb_sql_requete = ' + nb_sql_requete)
+	    nb_sql_requete['count'] += 1 
+	    logging.debug( args[0].__class__.__name__ + "." + inspect.stack()[0][3] +' nb_sql_requete = ' + str(nb_sql_requete['count']) )
 	    		
 
 	except mdb.ProgrammingError:
             logging.warning( args[0].__class__.__name__ + "." + inspect.stack()[0][3] + ' ProgrammingError = '+ str(trbk.print_exc()))
-            logging.warning( args[0].__class__.__name__ + "." + inspect.stack()[0][3] +' nb_sql_requete =' + nb_sql_requete)
+            logging.warning( args[0].__class__.__name__ + "." + inspect.stack()[0][3] +' nb_sql_requete =' + str(nb_sql_requete['count']))
      	except:
 	    logging.warning( args[0].__class__.__name__ + "." + inspect.stack()[0][3] + ' Unexpected_Error = ' + str(trbk.print_exc()))
             logging.warning( args[0].__class__.__name__ + "." + inspect.stack()[0][3] + ' Unexpected_Error =' + str(sys.exc_info()[0]))
-            logging.warning( args[0].__class__.__name__ + "." + inspect.stack()[0][3] + ' nb_sql_requete = ' + nb_sql_requete )
+            logging.warning( args[0].__class__.__name__ + "." + inspect.stack()[0][3] + ' nb_sql_requete = ' + str(nb_sql_requete['count']) )
 	    return resultat
 
     return fonction_decored
@@ -70,7 +69,7 @@ class SQLObject(object):
 	result = self.cur.fetchone()
 	self.nbClient = result['nbClient'] #because it's a Dict
 
-    @decorateur
+#    @decorateur
     def getClientsId(self):
 	"""A list of Clients.
 	   return the Client list 
@@ -81,7 +80,7 @@ class SQLObject(object):
 	
 	return self.cur.fetchall()
     
-    @decorateur
+#    @decorateur
     def getClient(self, clientId):
 	"""A Bacula Client.
            return a definition of a bacula Client 
@@ -89,11 +88,11 @@ class SQLObject(object):
 	query = "SELECT * from Client WHERE ClientId =" + str(clientId) 
 	self.cur.execute(query)
 	logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3] + query )
-
-	return self.cur.fetchone()
-
+	
+	result = self.cur.fetchone()
+	return result
  
-    @decorateur
+ #   @decorateur
     def getJobs24H(self):
 	""" A list of last 24h Bacula Job for all clients
 	   return the last 24h job for all clients 
@@ -106,7 +105,7 @@ class SQLObject(object):
 	return self.cur.fetchall()
 
 
-    @decorateur
+#    @decorateur
     def getClientJobs24H(self , clientId):
         """ A list of last 24h Bacula Job for all clients
            return the last 24h job for all clients 
@@ -120,7 +119,7 @@ class SQLObject(object):
         return self.cur.fetchall()
 
 
-    @decorateur
+#    @decorateur
     def getTotalSizeBackup(self, clientId):
 	query = "SELECT sum(JobBytes) as totalSizeBackup FROM Job WHERE ClientId =" + str(clientId)
 	self.cur.execute(query)
@@ -132,7 +131,7 @@ class SQLObject(object):
 
 	return totalSizeBackup/(1024*1024)
 
-    @decorateur
+#    @decorateur
     def getSizeBackup24H(self, clientId):
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
 	query = "SELECT sum(JobBytes) as sizeBackup24h FROM Job WHERE ClientId =" + str(clientId) +" AND EndTime>'" + str(heure24) + "'" 
@@ -142,10 +141,12 @@ class SQLObject(object):
 	sizeBackup24h  = self.cur.fetchone()['sizeBackup24h']
 	if not sizeBackup24h:
 	     sizeBackup24h = 0
+	sizeBackup24h = sizeBackup24h/(1024*1024)
+	if (sizeBackup24h < 0.01) and (sizeBackup24h > 0): 	
+	     sizeBackup24h = 1
+	return sizeBackup24h 
 
-	return sizeBackup24h/(1024*1024)
-
-    @decorateur
+#    @decorateur
     def getTotalNumberFiles(self, clientId):
 	query = "SELECT sum(JobFiles) as totalNumberFiles FROM Job WHERE ClientId =" + str(clientId)
 	self.cur.execute(query ) 
@@ -157,7 +158,7 @@ class SQLObject(object):
 	
 	return totalNumberFiles
 
-    @decorateur
+#    @decorateur
     def getNumberFiles24H(self, clientId):
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
 	query = "SELECT sum(JobFiles) as numberFiles24H FROM Job WHERE ClientId =" + str(clientId) +" AND EndTime>'" + str(heure24) + "'"
@@ -226,9 +227,10 @@ class MibClient(object):
 	return self.oid[-1]
 
     def getBaculaClientName(self):
-	clientId = self.oid[-1]
-	name = self.sqlObject.getClient(clientId)['Name']
 	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3] +' msg = "snmpget baculaClientName  .1.3.6.1.4.1.33923.1.4.1.2." + str(clientId)' )
+	clientId = self.oid[-1]
+	clientInfo = self.sqlObject.getClient(clientId)
+	name = clientInfo['Name']
         return name
 
     def getBaculaClientError(self):
@@ -310,7 +312,7 @@ class SNMPAgent(object):
             nextVar, = mibBuilder.importSymbols(mibObject.mibName, mibObject.objectType)
             if mibObject.objMib.flag:
 		#je suis une table
-	
+
 		for client in sqlObject.getClientsId():
 		    instance = createVariable(MibScalarInstance, mibObject.objMib, mibObject.valueFunc, nextVar.name,(client['ClientId'],), nextVar.syntax)
 		    listName = list(nextVar.name)
