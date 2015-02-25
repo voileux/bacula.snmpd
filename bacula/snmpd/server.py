@@ -26,24 +26,26 @@ MibObject = collections.namedtuple('MibObject', ['mibName', 'objectType','objMib
 
 def decorateur(fonction):
     nb_sql_requete = 0
-    def fonction_decored(*arg):
+    
+
+    def fonction_decored(*args):
 	try:
-	    self.con.ping()
-    	    resultat = fonction(*arg)
+	    args[0].con.ping()
+    	    resultat = fonction(*args)
 
 	    nb_sql_requete = nb_sql_requete + 1
-	    logging.debug( self.__class__.__name__ + "." + inspect.stack()[0][3], nb_sql_requete = nb_sql_requete)
+	    logging.debug( args[0].__class__.__name__ + "." + inspect.stack()[0][3] +' nb_sql_requete = ' + nb_sql_requete)
 	    		
 
 	except mdb.ProgrammingError:
-            logging.warning( self.__class__.__name__ + "." + inspect.stack()[0][3] , ProgrammingError = str(trbk.print_exc()))
-            logging.warning( self.__class__.__name__ + "." + inspect.stack()[0][3] , nb_sql_requete = nb_sql_requete)
+            logging.warning( args[0].__class__.__name__ + "." + inspect.stack()[0][3] + ' ProgrammingError = '+ str(trbk.print_exc()))
+            logging.warning( args[0].__class__.__name__ + "." + inspect.stack()[0][3] +' nb_sql_requete =' + nb_sql_requete)
      	except:
-	    logging.warning( self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(trbk.print_exc()))
-            logging.warning( self.__class__.__name__ + "." + inspect.stack()[0][3],  Unexpected_Error = str(sys.exc_info()[0]))
-            logging.warning( self.__class__.__name__ + "." + inspect.stack()[0][3],  nb_sql_requete =  nb_sql_requete)
+	    logging.warning( args[0].__class__.__name__ + "." + inspect.stack()[0][3] + ' Unexpected_Error = ' + str(trbk.print_exc()))
+            logging.warning( args[0].__class__.__name__ + "." + inspect.stack()[0][3] + ' Unexpected_Error =' + str(sys.exc_info()[0]))
+            logging.warning( args[0].__class__.__name__ + "." + inspect.stack()[0][3] + ' nb_sql_requete = ' + nb_sql_requete )
+	    return resultat
 
- 	return resultat
     return fonction_decored
 
 
@@ -56,18 +58,14 @@ class SQLObject(object):
 
     def __init__(self, paramsDict):
 	txt  = " Start Connexion to BDD (server = " + paramsDict['server'] + "database = " + paramsDict['database'] +", user = " + paramsDict['user'] + ", password = " + paramsDict['password'] 
-        logging.debug( self.__class__.__name__ +"."+ inspect.stack()[0][3], msg = txt  )
+        logging.debug( self.__class__.__name__ +"."+ inspect.stack()[0][3] + 'msg = ' + txt  )
     	
 	self.con = mdb.connect(paramsDict['server'], paramsDict['user'], paramsDict['password'] ,paramsDict['database'])
 	self.cur = self.con.cursor(mdb.cursors.DictCursor)
         
 	query = "SELECT count(*) as nbClient FROM Client"
 	self.cur.execute(query)
-	logging.debug( self.__class__.__name__ + "." + inspect.stack()[0][3], query = query) 
-	
-	global nb_sql_requete 
-	nb_sql_requete = nb_sql_requete + 1
-	logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3], nb_sql_requete = nb_sql_requete)
+	logging.debug( self.__class__.__name__ + "." + inspect.stack()[0][3] + query ) 
 	
 	result = self.cur.fetchone()
 	self.nbClient = result['nbClient'] #because it's a Dict
@@ -79,7 +77,7 @@ class SQLObject(object):
         """
 	query = "SELECT ClientId FROM Client"
 	self.cur.execute(query)
-	logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3] , query = query)
+	logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3] + query )
 	
 	return self.cur.fetchall()
     
@@ -90,7 +88,7 @@ class SQLObject(object):
 	"""
 	query = "SELECT * from Client WHERE ClientId =" + str(clientId) 
 	self.cur.execute(query)
-	logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3] , query = query)
+	logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3] + query )
 
 	return self.cur.fetchone()
 
@@ -103,7 +101,7 @@ class SQLObject(object):
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
 	query = "SELECT ClientId, JobErrors  FROM Job  WHERE EndTime>'" + str(heure24) + "'"
 	self.cur.execute(query)
-	logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3] , query = query)
+	logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3] +  query )
 	    
 	return self.cur.fetchall()
 
@@ -117,7 +115,7 @@ class SQLObject(object):
         self.con.ping()
 	query = "SELECT ClientId, JobErrors  FROM Job  WHERE ClientId = '" + str(clientId) + "'AND  EndTime>'" + str(heure24) + "'"
         self.cur.execute(query)
-	logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3] , query = query) 
+	logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3] + query) 
 
         return self.cur.fetchall()
 
@@ -126,7 +124,7 @@ class SQLObject(object):
     def getTotalSizeBackup(self, clientId):
 	query = "SELECT sum(JobBytes) as totalSizeBackup FROM Job WHERE ClientId =" + str(clientId)
 	self.cur.execute(query)
-        logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3] , query = query)
+        logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3] +  query )
 	    
 	totalSizeBackup = self.cur.fetchone()['totalSizeBackup']
 	if not totalSizeBackup:
@@ -139,7 +137,7 @@ class SQLObject(object):
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
 	query = "SELECT sum(JobBytes) as sizeBackup24h FROM Job WHERE ClientId =" + str(clientId) +" AND EndTime>'" + str(heure24) + "'" 
 	self.cur.execute(query)
-	logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3] , query = query)
+	logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3] + query )
 
 	sizeBackup24h  = self.cur.fetchone()['sizeBackup24h']
 	if not sizeBackup24h:
@@ -151,7 +149,7 @@ class SQLObject(object):
     def getTotalNumberFiles(self, clientId):
 	query = "SELECT sum(JobFiles) as totalNumberFiles FROM Job WHERE ClientId =" + str(clientId)
 	self.cur.execute(query ) 
-	logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3] , query = query)
+	logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3] + query )
 
 	totalNumberFiles  = self.cur.fetchone()['totalNumberFiles']
 	if not totalNumberFiles:
@@ -164,7 +162,7 @@ class SQLObject(object):
 	heure24 = datetime.datetime.now() - datetime.timedelta(1)
 	query = "SELECT sum(JobFiles) as numberFiles24H FROM Job WHERE ClientId =" + str(clientId) +" AND EndTime>'" + str(heure24) + "'"
 	self.cur.execute(query )
-	logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3] , query = query)
+	logging.debug(self.__class__.__name__ + "." + inspect.stack()[0][3] +  query )
 
 	numberFiles24H  = self.cur.fetchone()['numberFiles24H']
 	if not numberFiles24H:
@@ -198,15 +196,15 @@ class Mib(object):
         self._lock = threading.RLock()
 
     def getBaculaVersion(self):
-	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget  .1.3.6.1.4.1.33923.1.1 baculaVersion")
+	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3] +' msg = "snmpget  .1.3.6.1.4.1.33923.1.1 baculaVersion"')
         return "Bacula Version"
 
     def getBaculaTotalClient(self):
-	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget  .1.3.6.1.4.1.33923.1.2 baculaTotalClients")
+	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3] + ' msg = "snmpget  .1.3.6.1.4.1.33923.1.2 baculaTotalClients"')
 	return self.sqlObject.nbClient
 
     def getBaculaTotalClientError(self):
-	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget  .1.3.6.1.4.1.33923.1.3 baculaTotalClientsErrors")
+	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3] +' msg = "snmpget  .1.3.6.1.4.1.33923.1.3 baculaTotalClientsErrors"')
 	clientIds = self.sqlObject.getClientsId()
 	totalClientError = 0
 	#for clientId in clientIds:
@@ -230,32 +228,32 @@ class MibClient(object):
     def getBaculaClientName(self):
 	clientId = self.oid[-1]
 	name = self.sqlObject.getClient(clientId)['Name']
-	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientName  .1.3.6.1.4.1.33923.1.4.1.2." + str(clientId) )
+	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3] +' msg = "snmpget baculaClientName  .1.3.6.1.4.1.33923.1.4.1.2." + str(clientId)' )
         return name
 
     def getBaculaClientError(self):
 	clientId = self.oid[-1]
-	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientError  .1.3.6.1.4.1.33923.1.4.1.3." + str(clientId) )
+	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3]+' msg = "snmpget baculaClientError  .1.3.6.1.4.1.33923.1.4.1.3."' + str(clientId) )
         return  self.sqlObject.clientInError(clientId)
 
     def getBaculaClientSizeBackup(self):
         clientId = self.oid[-1]
-	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientSizeBackup .1.3.6.1.4.1.33923.1.4.1.4." + str(clientId) )
+	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3] +'  msg = "snmpget baculaClientSizeBackup .1.3.6.1.4.1.33923.1.4.1.4." '+ str(clientId) )
         return self.sqlObject.getSizeBackup24H(clientId)
 
     def getBaculaClientTotalSizeBackup(self):
 	clientId = self.oid[-1]
-	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientTotalSizeBackup .1.3.6.1.4.1.33923.1.4.1.5." + str(clientId) )
+	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3] +' msg = "snmpget baculaClientTotalSizeBackup .1.3.6.1.4.1.33923.1.4.1.5."' + str(clientId) )
         return self.sqlObject.getTotalSizeBackup(clientId)
 
     def getBaculaClientNumberFiles(self):
         clientId = self.oid[-1]
-	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientNumberFiles .1.3.6.1.4.1.33923.1.4.1.6." + str(clientId) )
+	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3] +' msg = "snmpget baculaClientNumberFiles .1.3.6.1.4.1.33923.1.4.1.6."' + str(clientId) )
         return self.sqlObject.getNumberFiles24H(clientId)
 
     def getBaculaClientTotalNumberFiles(self):
         clientId = self.oid[-1]
-	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3], msg = "snmpget baculaClientTotalNumberFiles .1.3.6.1.4.1.33923.1.4.1.7." + str(clientId) )
+	logging.info(  self.__class__.__name__ + "." + inspect.stack()[0][3] +' msg = "snmpget baculaClientTotalNumberFiles .1.3.6.1.4.1.33923.1.4.1.7." '+ str(clientId) )
         return self.sqlObject.getTotalNumberFiles(clientId)
 	
 
@@ -337,7 +335,7 @@ class SNMPAgent(object):
 
 
     def serve_forever(self):
-        logging.info( self.__class__.__name__ + "." + inspect.stack()[0][3], msg ="Starting Agent")
+        logging.info( self.__class__.__name__ + "." + inspect.stack()[0][3]+' msg ="Starting Agent"')
         self._snmpEngine.transportDispatcher.jobStarted(1)
         try:
            self._snmpEngine.transportDispatcher.runDispatcher()
